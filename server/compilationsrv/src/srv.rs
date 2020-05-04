@@ -34,6 +34,15 @@ fn get_lang_source_file<'a>(lang: i32) -> Option<&'a str> {
     }
 }
 
+fn get_lang_output_file<'a>(lang: i32) -> Option<&'a str> {
+    match lang {
+        x if x == Lang::C as i32 => Some("main"),
+        x if x == Lang::Cpp as i32 => Some("main"),
+        x if x == Lang::Java as i32 => Some("Main.class"),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct CompilationSrvImpl {}
 
@@ -57,8 +66,8 @@ impl CompilationSrv for CompilationSrvImpl {
             }
         };
 
-        let output = "./temp";
-        let input = "./temp.cpp";
+        let output = get_lang_output_file(req.lang).unwrap();
+        let input = get_lang_source_file(req.lang).unwrap();
 
         let mut ifile = std::fs::File::create(input)?;
         if ifile.write_all(req.source_code.as_bytes()).is_err() {

@@ -1,5 +1,6 @@
 #[macro_use]
 use log::{self, Level, Metadata, Record, SetLoggerError, LevelFilter};
+use chrono::Local;
 use tokio::fs::File;
 use tokio::prelude::*;
 
@@ -17,14 +18,20 @@ impl log::Log for TestLogger {
             return;
         }
 
-        println!("{}:{} - {}", record.level(), record.target(), record.args());
+        println!(
+            "[{}]<{}:{}> {} ({}:{})",
+            Local::now().format("%Y-%m-%d %H:%M:%S"),
+            record.level(),
+            record.target(),
+            record.args(),
+            record.file().unwrap_or(""),
+            record.line().unwrap_or(0)
+        );
     }
     fn flush(&self) {}
 }
 
-struct AsyncLogger {
-    file: File,
-}
+struct AsyncLogger {}
 
 impl log::Log for AsyncLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
@@ -32,9 +39,17 @@ impl log::Log for AsyncLogger {
     }
 
     fn log(&self, record: &Record) {
-        let text = format!("{}:{} - {}", record.level(), record.target(), record.args());
-
-        //self.file.write_all(text.as_bytes());
+        let text = format!(
+            "[{}]<{}:{}> {} ({}:{})",
+            Local::now().format("%Y-%m-%d %H:%M:%S"),
+            record.level(),
+            record.target(),
+            record.args(),
+            record.module_path().unwrap_or("<unnamed>"),
+            record.line().unwrap_or(0)
+        );
+        println!("{}", text);
+        // send to Kafka
     }
     fn flush(&self) {}
 }
@@ -48,9 +63,7 @@ pub fn init_test_logger() -> Result<(), SetLoggerError> {
 }
 
 pub fn init_async_logger() -> Result<(), SetLoggerError> {
-    // let file = File::create("log.log").await.unwrap();
-
-    // log::set_boxed_logger(Box::new(AsyncLogger { file: file }))?;
+    log::set_boxed_logger(Box::new(AsyncLogger {}))?;
     Ok(())
 }
 

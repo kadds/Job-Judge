@@ -1,0 +1,8 @@
+@hostname = localhost
+@port = 8080
+@host = {{hostname}}:{{port}}
+@contentType = application/json
+
+@baseUrl = http://{{host}}/judge
+
+GET {{baseUrl}}/problem/0
