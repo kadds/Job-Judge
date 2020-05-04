@@ -1,0 +1,35 @@
+syntax = "proto3";
+package rpc;
+
+import "runner.proto";
+
+message TestCase {
+  string input = 1;
+  string output = 2;
+};
+
+message JudgeStatistics {
+  uint64 real_time_cost = 1;
+  uint64 vir_time_cost = 2;
+  uint64 mm_cost = 3;
+}
+
+message JudgeRequest {
+  bytes result_bin = 1;
+  repeated TestCase test_case = 2;
+  JudgeStatistics limit_stat = 3;
+  runner.Lang lang = 11;
+  string lang_version = 12;
+  string extern_flags = 13;
+}
+
+message JudgeResult {
+  runner.ResultType type = 1;
+  string error_str = 2;
+  uint64 error_test_case = 3;
+  JudgeStatistics max_stat = 4;
+  JudgeStatistics min_stat = 5;
+  JudgeStatistics avg_stat = 6;
+}
+
+service JudgeSrv { rpc judge(JudgeRequest) returns (JudgeResult); }

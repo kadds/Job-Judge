@@ -1,0 +1,19 @@
+syntax = "proto3";
+import "runner.proto";
+package rpc;
+
+message CompilationRequest {
+  runner.Lang lang = 1;
+  string lang_version = 2;
+  string extern_flags = 3;
+  string source_code = 4;
+}
+
+message CompilationResult {
+  bytes result_bin = 1;
+  uint64 cost = 2;
+}
+
+service CompilationSrv {
+  rpc compile(CompilationRequest) returns (CompilationResult);
+}

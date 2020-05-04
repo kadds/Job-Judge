@@ -1,0 +1,21 @@
+syntax = "proto3";
+package runner;
+
+enum ResultType {
+  all_correct = 0;
+  compile_error = 1;
+  wrong_answer = 2;
+  runtime_error = 3;
+  memory_limit = 4;
+  time_limit = 5;
+  unknown_error = 6;
+}
+
+enum Lang {
+  c = 0;
+  cpp = 1;
+  python = 2;
+  javascript = 3;
+  java = 4;
+  csharp = 5;
+}

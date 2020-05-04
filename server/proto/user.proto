@@ -1,0 +1,8 @@
+syntax = "proto3";
+package user;
+
+enum user_type {
+  normal = 0;
+  admin = 1;
+  root = 2;
+}
