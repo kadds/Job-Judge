@@ -32,4 +32,4 @@ message JudgeResult {
   JudgeStatistics avg_stat = 6;
 }
 
-service JudgeSrv { rpc judge(JudgeRequest) returns (JudgeResult); }
+service JudgeSvr { rpc judge(JudgeRequest) returns (JudgeResult); }

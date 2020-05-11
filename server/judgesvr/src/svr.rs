@@ -1,5 +1,5 @@
 use log::{debug, info, trace, warn};
-use rpc::judge_srv_server::{JudgeSrv, JudgeSrvServer};
+use rpc::judge_svr_server::{JudgeSvr, JudgeSvrServer};
 use rpc::{JudgeRequest, JudgeResult, JudgeStatistics, TestCase};
 use std::fmt;
 use std::fs::File;
@@ -145,11 +145,19 @@ impl fmt::Display for JudgeRequest {
 }
 
 #[derive(Debug, Default)]
-pub struct JudgeSrvImpl {}
+pub struct JudgeSvrImpl {}
 
 #[tonic::async_trait]
-impl JudgeSrv for JudgeSrvImpl {
+impl JudgeSvr for JudgeSvrImpl {
     async fn judge(&self, request: Request<JudgeRequest>) -> Result<Response<JudgeResult>, Status> {
+        if let Some(addr) = request.remote_addr() {
+            // Don't request from local, this judge_svr must startup on docker/containers
+            if addr.ip() == std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)) {
+                warn!("security warning! invalid request from {}", addr);
+                return Err(Status::aborted("invalid request"));
+            }
+        }
+
         let req = request.into_inner();
         trace!("request {}", req);
 
@@ -173,13 +181,7 @@ impl JudgeSrv for JudgeSrvImpl {
             return Err(Status::unavailable(err.to_string()));
         };
 
-        let (cmd, arg) = match get_lang_exec_cmd(req.lang) {
-            Some(x) => x,
-            None => {
-                warn!("lang is unknown.");
-                return Err(Status::failed_precondition("unknown lang"));
-            }
-        };
+        let (cmd, arg) = get_lang_exec_cmd(req.lang).unwrap(); // unwrap because of :162
 
         let mut i: usize = 0;
         let stat = req.limit_stat.unwrap();
@@ -243,7 +245,9 @@ impl JudgeSrv for JudgeSrvImpl {
 
                 let thd = thread::spawn(move || do_thread(stdin_fd, input));
 
-                reader.read_to_end(&mut buf).await;
+                if reader.read_to_end(&mut buf).await.is_err() {
+                    warn!("read from pipe has an error");
+                }
 
                 if thd.join().is_err() {
                     warn!("join thread failed");
@@ -286,7 +290,7 @@ impl JudgeSrv for JudgeSrvImpl {
                 }
 
                 match String::from_utf8(buf) {
-                    Err(v) => {
+                    Err(_) => {
                         build_avg(&mut avg_stat, i);
                         warn!("output string is invalid");
 
@@ -320,21 +324,22 @@ impl JudgeSrv for JudgeSrvImpl {
             }
         }
         build_avg(&mut avg_stat, i);
-        return Ok(Response::new(JudgeResult {
+        Ok(Response::new(JudgeResult {
             max_stat: Some(max_stat),
             min_stat: Some(min_stat),
             avg_stat: Some(avg_stat),
             error_str: "".to_owned(),
             r#type: ResultType::AllCorrect as i32,
             error_test_case: 0,
-        }));
+        }))
     }
 }
 
-pub fn get() -> JudgeSrvServer<JudgeSrvImpl> {
-    return JudgeSrvServer::new(JudgeSrvImpl::default());
+pub fn get() -> JudgeSvrServer<JudgeSvrImpl> {
+    return JudgeSvrServer::new(JudgeSvrImpl::default());
 }
 
+#[cfg(test)]
 #[test]
 fn test() {
     let source_code = r#"
@@ -350,7 +355,7 @@ print(i + 1)"#;
         .enable_all()
         .build()
         .unwrap();
-    let srv = JudgeSrvImpl::default();
+    let svr = JudgeSvrImpl::default();
 
     let req = Request::new(JudgeRequest {
         lang: Lang::Python as i32,
@@ -369,7 +374,7 @@ print(i + 1)"#;
     });
 
     runtime.block_on(async {
-        let async_ret = srv.judge(req).await;
+        let async_ret = svr.judge(req).await;
         let respond = async_ret.unwrap().into_inner();
         if respond.r#type != 0 {
             assert_eq!("here is output str", respond.error_str);

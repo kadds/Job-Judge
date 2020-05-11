@@ -1,0 +1,20 @@
+syntax = "proto3";
+package rpc;
+
+message Instance {
+  string address = 1;
+  uint64 id = 2;
+  uint32 key = 3;
+}
+
+message StartupRequest { string config = 1; }
+
+message ShutdownResult { bool ok = 1; }
+
+message State { uint32 cost_time = 1; }
+
+service ContainerSvr {
+  rpc startup(StartupRequest) returns (Instance);
+  rpc state(Instance) returns (State);
+  rpc shutdown(Instance) returns (ShutdownResult);
+}

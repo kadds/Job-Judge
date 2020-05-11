@@ -1,6 +1,7 @@
 use log::{debug, info, trace, warn};
-use rpc::compilation_srv_server::{CompilationSrv, CompilationSrvServer};
+use rpc::compilation_svr_server::{CompilationSvr, CompilationSvrServer};
 use rpc::{CompilationRequest, CompilationResult};
+use std::fs::File;
 use std::io::{Read, Write};
 use std::time::Duration;
 use tokio::process::Command;
@@ -44,10 +45,10 @@ fn get_lang_output_file<'a>(lang: i32) -> Option<&'a str> {
 }
 
 #[derive(Debug, Default)]
-pub struct CompilationSrvImpl {}
+pub struct CompilationSvrImpl {}
 
 #[tonic::async_trait]
-impl CompilationSrv for CompilationSrvImpl {
+impl CompilationSvr for CompilationSvrImpl {
     async fn compile(
         &self,
         request: Request<CompilationRequest>,
@@ -69,14 +70,13 @@ impl CompilationSrv for CompilationSrvImpl {
         let output = get_lang_output_file(req.lang).unwrap();
         let input = get_lang_source_file(req.lang).unwrap();
 
-        let mut ifile = std::fs::File::create(input)?;
-        if ifile.write_all(req.source_code.as_bytes()).is_err() {
+        if File::create(input)
+            .and_then(|mut f| f.write_all(req.source_code.as_bytes()).map(|_| f))
+            .and_then(|mut f| f.flush())
+            .is_err()
+        {
             warn!("write source code failed. request {:?}", req);
-
             return Err(Status::internal("write source code failed"));
-        }
-        if ifile.flush().is_err() {
-            return Err(Status::internal("flush source code failed"));
         }
 
         let cmd_timeout = timeout(
@@ -89,18 +89,22 @@ impl CompilationSrv for CompilationSrvImpl {
         )
         .await;
 
-        if cmd_timeout.is_err() {
-            return Err(Status::resource_exhausted("timeout"));
-        }
-        let cmd_result = cmd_timeout.unwrap();
+        let cmd_result = match cmd_timeout {
+            Ok(v) => v,
+            Err(_) => {
+                return Err(Status::resource_exhausted("timeout"));
+            }
+        };
 
-        if let Err(err) = cmd_result {
-            return Err(Status::resource_exhausted(
-                "execute command failed. ".to_owned() + err.to_string().as_str(),
-            ));
-        }
+        let cmd = match cmd_result {
+            Ok(v) => v,
+            Err(err) => {
+                return Err(Status::resource_exhausted(
+                    "execute command failed. ".to_owned() + err.to_string().as_str(),
+                ))
+            }
+        };
 
-        let cmd = cmd_result.unwrap();
         let output_obj = cmd;
 
         if !output_obj.status.success() {
@@ -111,23 +115,26 @@ impl CompilationSrv for CompilationSrvImpl {
         let end = chrono::Utc::now();
         let delta = end.timestamp_millis() - start.timestamp_millis();
         let mut buf = vec![];
-        let mut ofile = std::fs::File::open(output)?;
 
-        if ofile.read_to_end(&mut buf).is_ok() {
-            Ok(Response::new(CompilationResult {
-                cost: delta as u64,
-                result_bin: buf,
-            }))
-        } else {
-            Err(Status::unavailable("compilation error"))
+        if File::open(output)
+            .and_then(|mut f| f.read_to_end(&mut buf))
+            .is_err()
+        {
+            return Err(Status::unavailable("compilation error"));
         }
+
+        Ok(Response::new(CompilationResult {
+            cost: delta as u64,
+            result_bin: buf,
+        }))
     }
 }
 
-pub fn get() -> CompilationSrvServer<CompilationSrvImpl> {
-    return CompilationSrvServer::new(CompilationSrvImpl::default());
+pub fn get() -> CompilationSvrServer<CompilationSvrImpl> {
+    return CompilationSvrServer::new(CompilationSvrImpl::default());
 }
 
+#[cfg(test)]
 #[test]
 fn test() {
     let source_code = r#"
@@ -148,7 +155,7 @@ int main()
         .enable_all()
         .build()
         .unwrap();
-    let srv = CompilationSrvImpl::default();
+    let svr = CompilationSvrImpl::default();
     let req = Request::new(CompilationRequest {
         lang: 1,
         lang_version: "11".to_owned(),
@@ -156,7 +163,7 @@ int main()
         extern_flags: "".to_owned(),
     });
     runtime.block_on(async {
-        let async_ret = srv.compile(req).await;
+        let async_ret = svr.compile(req).await;
         let respond = async_ret.unwrap().into_inner();
         assert_ne!(0, respond.cost);
         assert!(0 < respond.result_bin.len());

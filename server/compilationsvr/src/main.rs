@@ -1,4 +1,4 @@
-mod srv;
+mod svr;
 use etcd_rs::*;
 use tokio::prelude::*;
 use tonic::transport::Server;
@@ -10,7 +10,7 @@ async fn main() {
     let addr = "0.0.0.0:50051".parse().unwrap();
 
     Server::builder()
-        .add_service(srv::get())
+        .add_service(svr::get())
         .serve(addr)
         .await
         .unwrap();

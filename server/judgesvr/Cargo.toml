@@ -1,0 +1,20 @@
+[package]
+name = "judgesvr"
+version = "0.1.0"
+authors = ["kadds <itmyxyf@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libc = "0.2"
+chrono = "0.4"
+tokio = { version = "0.2", features = ["full"] }
+etcd-rs = "0.2"
+tonic = "0.2"
+prost = "0.6"
+log = "0.4"
+liblog = { path = "../liblog" }
+
+[build-dependencies]
+tonic-build = "0.2"
