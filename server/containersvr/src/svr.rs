@@ -1,3 +1,5 @@
+use super::config;
+use super::docker;
 use log::{debug, info, trace, warn};
 use rpc::container_svr_server::{ContainerSvr, ContainerSvrServer};
 use rpc::{Instance, ShutdownResult, StartupRequest, State};
@@ -18,6 +20,23 @@ pub struct ContainerSvrImpl {}
 impl ContainerSvr for ContainerSvrImpl {
     async fn startup(&self, request: Request<StartupRequest>) -> Result<Instance, Status> {
         let req = request.into_inner();
+        let cfg = match config::from(req.config) {
+            Some(v) => v,
+            None => {
+                return Err(Status::not_found("config not find"));
+            }
+        };
+
+        if cfg.container == "docker" {
+            docker::run(
+                name: req.name,
+                cfg.img_src,
+                cfg.mem_limit,
+                cfg.vcpu_cnt,
+                cfg.vcpu_percent,
+                cfg.io_speed_limit,
+            );
+        }
 
         Ok(Instance {})
     }

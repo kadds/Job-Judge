@@ -7,12 +7,13 @@ use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct ContainerConfig {
-    container: String,
-    mem_size: String,
-    vcpu_cnt: String,
-    speed_limit: String,
-    img_src: String,
-    img_fs_src: String,
+    pub container: String,
+    pub mem_limit: u32,
+    pub vcpu_cnt: u16,
+    pub vcpu_percent: u8,
+    pub io_speed_limit: u32,
+    pub img_src: String,
+    pub img_fs_src: String,
 }
 
 lazy_static! {

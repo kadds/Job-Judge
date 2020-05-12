@@ -1,9 +1,9 @@
-mod svr;
 use tokio::prelude::*;
 use tonic::transport::Server;
-pub mod config;
-pub mod docker;
-pub mod firecracker;
+mod config;
+mod docker;
+mod firecracker;
+mod svr;
 #[macro_use]
 extern crate lazy_static;
 extern crate liblog;

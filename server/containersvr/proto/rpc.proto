@@ -7,7 +7,10 @@ message Instance {
   uint32 key = 3;
 }
 
-message StartupRequest { string config = 1; }
+message StartupRequest {
+  string config = 1;
+  string name = 2;
+}
 
 message ShutdownResult { bool ok = 1; }
 
