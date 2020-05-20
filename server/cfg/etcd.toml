@@ -1,0 +1,4 @@
+[etcd]
+endpoints=["proj.site:5670"]
+username="jj"
+password="jjpwd"

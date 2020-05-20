@@ -3,6 +3,30 @@ use log::{self, Level, Metadata, Record, SetLoggerError, LevelFilter};
 use chrono::Local;
 use tokio::fs::File;
 use tokio::prelude::*;
+extern crate ansi_term;
+use ansi_term::Colour;
+use ansi_term::Style;
+
+fn color_text(record: &Record) -> String {
+    let color = match record.level() {
+        Level::Debug => Colour::White,
+        Level::Trace => Colour::Fixed(252),
+        Level::Info => Colour::Green,
+        Level::Warn => Colour::Yellow,
+        Level::Error => Colour::Red,
+    };
+
+    let fmt_text = format!(
+        "[{}]<{}:{}> {} ({}:{})",
+        Local::now().format("%Y-%m-%d %H:%M:%S"),
+        record.level(),
+        record.target(),
+        record.args(),
+        record.module_path().unwrap_or("<unnamed>"),
+        record.line().unwrap_or(0)
+    );
+    color.paint(fmt_text).to_string()
+}
 
 struct TestLogger {
     level: Level,
@@ -17,16 +41,7 @@ impl log::Log for TestLogger {
         if !self.enabled(record.metadata()) {
             return;
         }
-
-        println!(
-            "[{}]<{}:{}> {} ({}:{})",
-            Local::now().format("%Y-%m-%d %H:%M:%S"),
-            record.level(),
-            record.target(),
-            record.args(),
-            record.file().unwrap_or(""),
-            record.line().unwrap_or(0)
-        );
+        println!("{}", color_text(record));
     }
     fn flush(&self) {}
 }
@@ -39,16 +54,10 @@ impl log::Log for AsyncLogger {
     }
 
     fn log(&self, record: &Record) {
-        let text = format!(
-            "[{}]<{}:{}> {} ({}:{})",
-            Local::now().format("%Y-%m-%d %H:%M:%S"),
-            record.level(),
-            record.target(),
-            record.args(),
-            record.module_path().unwrap_or("<unnamed>"),
-            record.line().unwrap_or(0)
-        );
-        println!("{}", text);
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+        println!("{}", color_text(record));
         // send to Kafka
     }
     fn flush(&self) {}

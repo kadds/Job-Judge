@@ -1,5 +1,5 @@
 [package]
-name = "liblog"
+name = "micro-service"
 version = "0.1.0"
 authors = ["kadds <itmyxyf@gmail.com>"]
 edition = "2018"
@@ -7,8 +7,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+etcd-rs = "0.3.0-alpha.1"
+async-trait = "0.1"
+log = "0.4"
 tokio = { version = "0.2", features = ["full"] }
-log = { version = "0.4", features = ["std"] }
-chrono = "0.4"
-kafka = "0.8"
-ansi_term = "0.12"
+tonic = "0.2"
+heim-net = "0.0.10"
