@@ -2,8 +2,11 @@ use async_trait::async_trait;
 use etcd_rs::*;
 use heim_net;
 use log::{debug, error, info, warn};
+use std::boxed::Box;
+use std::collections::HashMap;
 use tokio::stream::StreamExt;
 use tonic;
+use std::sync::RwLock;
 
 pub enum Error {
     ConnectionFailed,
@@ -12,18 +15,27 @@ pub enum Error {
     ResourceLimit,
     Unknown,
 }
+type Result<T> = std::result::Result<T, Error>;
+
+pub trait LoadBalancer {
+    fn GetServer(&mut self, name: String) -> Option<String>;
+    fn OnServerChange(&mut self, s: Vec<(String, String)>, addr: bool);
+}
+
+pub struct RandomLoadBalancer {
+    servers: Vec<String>,
+}
 
 pub struct MicroService {
     etcd: Client,
     prefix: String,
     name: String,
     lease_id: u64,
+    map: RwLock<HashMap<String, Box<dyn LoadBalancer>>>,
 }
 
-type Result<T> = std::result::Result<T, Error>;
-
 #[async_trait]
-pub trait MicroServiceImpl {
+pub trait Service {
     async fn init(
         urls: Vec<String>,
         user: String,
@@ -40,10 +52,10 @@ pub trait MicroServiceImpl {
     async fn watch_server(
         &mut self,
         prefix: String,
-        f: fn(Vec<(String, String)>, bool) -> (),
+        load_balancer: impl LoadBalancer,
     ) -> Result<()>;
 
-    fn get_server(&mut self, uin: u64, prefix: String) -> Option<String>;
+    fn get_load_balance_server(name: String) -> Option<String>;
 }
 
 async fn do_keep_alive(lease: &mut Lease, lease_id: u64) -> Result<()> {
@@ -62,7 +74,7 @@ async fn do_put_workload(kv: &mut Kv, prefix: &String, name: &String, workload: 
 }
 
 #[async_trait]
-impl MicroServiceImpl for MicroService {
+impl Service for MicroService {
     async fn init(
         urls: Vec<String>,
         user: String,
@@ -84,6 +96,7 @@ impl MicroServiceImpl for MicroService {
                     prefix,
                     name,
                     lease_id: 0,
+                    map: RwLock<HashMap<String, Box<dyn LoadBalancer>>>::new()
                 });
             }
         }
@@ -154,8 +167,10 @@ impl MicroServiceImpl for MicroService {
     async fn watch_server(
         &mut self,
         prefix: String,
-        f: fn(Vec<(String, String)>, bool) -> (),
+        load_balancer: impl LoadBalancer,
     ) -> Result<()> {
+        self.map.insert(it, Box::from(load_balancer));
+
         let mut wc = self.etcd.watch_client();
         let mut inbound = wc.watch(KeyRange::prefix(prefix)).await;
         tokio::spawn(async move {
@@ -187,15 +202,19 @@ impl MicroServiceImpl for MicroService {
                 }
 
                 if put_vec.len() > 0 {
-                    f(put_vec, true);
+                    load_balancer.OnServerChange(put_vec, true);
                 }
                 if del_vec.len() > 0 {
-                    f(del_vec, false);
+                    load_balancer.OnServerChange(del_vec, false);
                 }
             }
         });
 
         Ok(())
+    }
+
+    fn get_load_balance_server(name: String) -> Option<String> {
+        None
     }
 }
 
