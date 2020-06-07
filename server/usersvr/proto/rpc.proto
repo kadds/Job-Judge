@@ -4,7 +4,7 @@ package rpc;
 
 message CreateUserRequest { user.UserInfo userinfo = 1; }
 
-message CreateUserResult {}
+message CreateUserResult { uint64 uid = 1; }
 
 message ValidUserRequest {
   string username = 1;
@@ -12,7 +12,7 @@ message ValidUserRequest {
   string password = 3;
 }
 
-message ValidUserResult {}
+message ValidUserResult { bool ok = 1; }
 
 message GetUserRequest { uint64 uid = 1; }
 
@@ -20,17 +20,17 @@ message GetUserResult { user.UserInfo userinfo = 1; }
 
 message UpdateUserRequest { user.UserInfo userinfo = 1; }
 
-message UpdateUserResult {}
+message UpdateUserResult { bool ok = 1; }
 
-message HasUserReqeust {
+message HasUserRequest {
   string username = 1;
   string email = 2;
 }
 
-message HasUserResult {}
+message HasUserResult { bool ok = 1; }
 
 service UserSvr {
-  rpc create(CreateUserRequest) returns (CreateUserResult);
+  rpc create_user(CreateUserRequest) returns (CreateUserResult);
 
   rpc valid_user(ValidUserRequest) returns (ValidUserResult);
 
@@ -38,5 +38,5 @@ service UserSvr {
 
   rpc update_user(UpdateUserRequest) returns (UpdateUserResult);
 
-  rpc has_user(HasUserReqeust) returns (HasUserResult);
+  rpc has_user(HasUserRequest) returns (HasUserResult);
 }

@@ -18,7 +18,7 @@ pub struct ContainerSvrImpl {}
 
 #[tonic::async_trait]
 impl ContainerSvr for ContainerSvrImpl {
-    async fn startup(&self, request: Request<StartupRequest>) -> Result<Instance, Status> {
+    async fn startup(&self, request: Request<StartupRequest>) -> Result<Response<Instance>, Status> {
         let req = request.into_inner();
         let cfg = match config::from(req.config) {
             Some(v) => v,
@@ -38,7 +38,7 @@ impl ContainerSvr for ContainerSvrImpl {
             );
         }
 
-        Ok(Instance {})
+        Ok(Response::new(Instance {}))
     }
 
     async fn state(&self, request: Request<Instance>) -> Result<State, Status> {}

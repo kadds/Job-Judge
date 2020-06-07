@@ -1,5 +1,4 @@
 mod svr;
-use etcd_rs::*;
 use tonic::transport::Server;
 extern crate liblog;
 use log::error;

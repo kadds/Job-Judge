@@ -10,7 +10,6 @@ edition = "2018"
 libc = "0.2"
 chrono = "0.4"
 tokio = { version = "0.2", features = ["full"] }
-etcd-rs = "0.2"
 tonic = "0.2"
 prost = "0.6"
 log = "0.4"
