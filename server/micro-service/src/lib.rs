@@ -2,11 +2,13 @@ use async_trait::async_trait;
 use etcd_rs::*;
 use heim_net;
 use log::{debug, error, info, warn};
+use rand::prelude::*;
 use std::boxed::Box;
-use std::collections::HashMap;
-use tokio::stream::StreamExt;
-use tonic;
+use std::cell::{Cell, RefCell};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::sync::RwLock;
+use tokio::stream::StreamExt;
 
 pub enum Error {
     ConnectionFailed,
@@ -18,44 +20,62 @@ pub enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 pub trait LoadBalancer {
-    fn GetServer(&mut self, name: String) -> Option<String>;
-    fn OnServerChange(&mut self, s: Vec<(String, String)>, addr: bool);
+    fn get_server(&self, uin: u64, flags: u64) -> Option<String>;
+    fn on_server_change(&mut self, s: Vec<(String, String)>, add: bool);
 }
 
 pub struct RandomLoadBalancer {
-    servers: Vec<String>,
+    servers: Vec<(String, String)>,
+    set: HashMap<String, usize>,
 }
+
+impl LoadBalancer for RandomLoadBalancer {
+    fn on_server_change(&mut self, s: Vec<(String, String)>, add: bool) {
+        for (name, addr) in s {
+            let idx = self.set.get(&name);
+            if add {
+                match idx {
+                    Some(i) => {
+                        self.servers[i.to_owned()].1 = addr;
+                    }
+                    None => {
+                        self.servers.push((name.to_owned(), addr));
+                        self.set.insert(name.to_owned(), self.servers.len());
+                    }
+                }
+            } else {
+                match idx {
+                    Some(i) => {
+                        let vec_idx = i.to_owned();
+                        self.set.remove(&name);
+                        *self.set.get_mut(&self.servers.last().unwrap().0).unwrap() = vec_idx;
+                        self.servers.swap_remove(vec_idx);
+                    }
+                    None => {
+                        warn!("can't find available server in map");
+                    }
+                }
+            }
+        }
+    }
+
+    fn get_server(&self, uin: u64, flags: u64) -> Option<String> {
+        let vec = &self.servers;
+        match vec.len() {
+            0 => None,
+            v => Some(vec[rand::thread_rng().gen_range(0, v)].1.to_owned()),
+        }
+    }
+}
+
+type LoadBalancerHashMap = HashMap<String, Arc<RwLock<dyn LoadBalancer + Send + Sync>>>;
 
 pub struct MicroService {
     etcd: Client,
     prefix: String,
     name: String,
     lease_id: u64,
-    map: RwLock<HashMap<String, Box<dyn LoadBalancer>>>,
-}
-
-#[async_trait]
-pub trait Service {
-    async fn init(
-        urls: Vec<String>,
-        user: String,
-        password: String,
-        prefix: String,
-        name: String,
-        retry_times: u32,
-    ) -> Result<MicroService>;
-
-    async fn register_self(&mut self, addr: String, ttl: u64, retry_times: u32) -> Result<()>;
-
-    async fn update_self(&mut self, workload: u32) -> Result<()>;
-
-    async fn watch_server(
-        &mut self,
-        prefix: String,
-        load_balancer: impl LoadBalancer,
-    ) -> Result<()>;
-
-    fn get_load_balance_server(name: String) -> Option<String>;
+    map: RwLock<LoadBalancerHashMap>,
 }
 
 async fn do_keep_alive(lease: &mut Lease, lease_id: u64) -> Result<()> {
@@ -73,8 +93,7 @@ async fn do_put_workload(kv: &mut Kv, prefix: &String, name: &String, workload: 
     .or(Err(Error::ConnectionFailed))
 }
 
-#[async_trait]
-impl Service for MicroService {
+impl MicroService {
     async fn init(
         urls: Vec<String>,
         user: String,
@@ -96,7 +115,7 @@ impl Service for MicroService {
                     prefix,
                     name,
                     lease_id: 0,
-                    map: RwLock<HashMap<String, Box<dyn LoadBalancer>>>::new()
+                    map: RwLock::new(LoadBalancerHashMap::new()),
                 });
             }
         }
@@ -167,12 +186,16 @@ impl Service for MicroService {
     async fn watch_server(
         &mut self,
         prefix: String,
-        load_balancer: impl LoadBalancer,
+        load_balancer: Arc<RwLock<dyn LoadBalancer + Send + Sync>>,
     ) -> Result<()> {
-        self.map.insert(it, Box::from(load_balancer));
+        self.map
+            .write()
+            .expect("lock failed")
+            .insert(prefix.to_owned(), load_balancer.clone());
 
         let mut wc = self.etcd.watch_client();
-        let mut inbound = wc.watch(KeyRange::prefix(prefix)).await;
+        let mut inbound = wc.watch(KeyRange::prefix(prefix.to_owned())).await;
+
         tokio::spawn(async move {
             while let Some(r) = inbound.next().await {
                 let mut vec = match r {
@@ -197,15 +220,23 @@ impl Service for MicroService {
                         EventType::Put => {
                             put_vec.push((kv.key_str().to_string(), kv.value_str().to_string()));
                         }
-                        EventType::Delete => {}
+                        EventType::Delete => {
+                            del_vec.push((kv.key_str().to_owned(), kv.value_str().to_string()));
+                        }
                     }
                 }
 
                 if put_vec.len() > 0 {
-                    load_balancer.OnServerChange(put_vec, true);
+                    load_balancer
+                        .write()
+                        .expect("lock fail")
+                        .on_server_change(put_vec, true);
                 }
                 if del_vec.len() > 0 {
-                    load_balancer.OnServerChange(del_vec, false);
+                    load_balancer
+                        .write()
+                        .expect("lock fail")
+                        .on_server_change(del_vec, false);
                 }
             }
         });
@@ -213,7 +244,13 @@ impl Service for MicroService {
         Ok(())
     }
 
-    fn get_load_balance_server(name: String) -> Option<String> {
+    fn get_load_balance_server(&self, prefix: String, uin: u64, flags: u64) -> Option<String> {
+        if let Some(load_balancer) = self.map.read().expect("lock fail").get(&prefix) {
+            return load_balancer
+                .read()
+                .expect("lock fail")
+                .get_server(uin, flags);
+        }
         None
     }
 }

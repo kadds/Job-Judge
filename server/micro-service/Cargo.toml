@@ -11,5 +11,6 @@ etcd-rs = "0.3.0-alpha.1"
 async-trait = "0.1"
 log = "0.4"
 tokio = { version = "0.2", features = ["full"] }
-tonic = "0.2"
 heim-net = "0.0.10"
+liblog = { path = "../liblog" }
+rand = "0.7"

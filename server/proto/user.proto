@@ -1,8 +1,20 @@
 syntax = "proto3";
 package user;
 
-enum user_type {
+enum UserType {
   normal = 0;
   admin = 1;
   root = 2;
+}
+
+message UserInfo {
+  uint64 uid = 1;
+  UserType type = 2;
+  string username = 3;
+  string nickname = 4;
+  string avatar = 5;
+  string email = 6;
+  string salt = 7;
+  string password = 8;
+  string mark = 20;
 }

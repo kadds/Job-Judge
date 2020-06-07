@@ -1,0 +1,42 @@
+syntax = "proto3";
+import "user.proto";
+package rpc;
+
+message CreateUserRequest { user.UserInfo userinfo = 1; }
+
+message CreateUserResult {}
+
+message ValidUserRequest {
+  string username = 1;
+  string email = 2;
+  string password = 3;
+}
+
+message ValidUserResult {}
+
+message GetUserRequest { uint64 uid = 1; }
+
+message GetUserResult { user.UserInfo userinfo = 1; }
+
+message UpdateUserRequest { user.UserInfo userinfo = 1; }
+
+message UpdateUserResult {}
+
+message HasUserReqeust {
+  string username = 1;
+  string email = 2;
+}
+
+message HasUserResult {}
+
+service UserSvr {
+  rpc create(CreateUserRequest) returns (CreateUserResult);
+
+  rpc valid_user(ValidUserRequest) returns (ValidUserResult);
+
+  rpc get_user(GetUserRequest) returns (GetUserResult);
+
+  rpc update_user(UpdateUserRequest) returns (UpdateUserResult);
+
+  rpc has_user(HasUserReqeust) returns (HasUserResult);
+}
