@@ -6,4 +6,27 @@
 @baseUrl = http://{{host}}/user
 
 // get user info
-GET {{baseUrl}}/info
+GET {{baseUrl}}/info HTTP/1.1
+
+### 
+// login with username and password
+POST {{baseUrl}}/login HTTP/1.1
+Content-Type: {{contentType}}
+{
+    "username": "test",
+    "password": "pwd123",
+}
+
+### 
+
+POST  {{baseUrl}}/logout HTTP/1.1
+Content-Type: {{contentType}}
+{
+
+}
+
+PUT {{baseUrl}}/info HTTP/1.1
+Content-Type: {{contentType}}
+{
+
+}
