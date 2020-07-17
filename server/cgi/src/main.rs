@@ -16,7 +16,8 @@ async fn main() -> std::io::Result<()> {
                     .service(api::user::login)
                     .service(api::user::logout)
                     .service(api::user::info)
-                    .service(api::user::update_info),
+                    .service(api::user::update_info)
+                    .service(api::user::register),
             )
             .service(
                 web::scope("/judge")

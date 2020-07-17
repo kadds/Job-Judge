@@ -22,3 +22,8 @@ pub async fn info() -> impl Responder {
 pub async fn update_info() -> impl Responder {
     HttpResponse::Ok()
 }
+
+#[put("/register")]
+pub async fn register() -> impl Responder {
+    HttpResponse::Ok()
+}

@@ -8,11 +8,14 @@ message CreateUserResult { uint64 uid = 1; }
 
 message ValidUserRequest {
   string username = 1;
-  string email = 2;
+  // string email = 2;
   string password = 3;
 }
 
-message ValidUserResult { bool ok = 1; }
+message ValidUserResult {
+  bool ok = 1;
+  bool is_exist = 2;
+}
 
 message GetUserRequest { uint64 uid = 1; }
 
@@ -27,7 +30,7 @@ message HasUserRequest {
   string email = 2;
 }
 
-message HasUserResult { bool ok = 1; }
+message HasUserResult { bool has = 1; }
 
 service UserSvr {
   rpc create_user(CreateUserRequest) returns (CreateUserResult);

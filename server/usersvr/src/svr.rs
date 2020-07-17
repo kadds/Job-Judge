@@ -2,13 +2,12 @@ use dotenv::dotenv;
 use log::{debug, error, info, trace, warn};
 use rpc::user_svr_server::{UserSvr, UserSvrServer};
 use rpc::*;
-use tokio_postgres::{Client, Connection, Error, Statement};
-//use schema::user_tbl::dsl::*;
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::time::Duration;
 use tokio::time::timeout;
+use tokio_postgres::{Client, Connection, Error, Row, Statement};
 use tonic::{Request, Response, Status};
 
 pub mod rpc {
@@ -64,8 +63,38 @@ impl UserSvr for UserSvrImpl {
         &self,
         request: Request<ValidUserRequest>,
     ) -> Result<Response<ValidUserResult>, Status> {
-        Err(Status::unavailable(""))
-        //Ok(Response::new(ValidUserResult {}))
+        let req = request.into_inner();
+        let mut ok = false;
+        let mut exist = false;
+        let res: Option<Row> = match self
+            .client
+            .query_opt(&self.statements[1], &[&req.username])
+            .await
+        {
+            Ok(v) => v,
+            Err(err) => {
+                error!("execute sql failed when select. err {}", err);
+                return Err(Status::unavailable("execute sql failed"));
+            }
+        };
+
+        if let Some(res) = res {
+            exist = true;
+            let pwd: String = res.get(0);
+            if pwd != req.password {
+                ok = false;
+            } else {
+                ok = true;
+            }
+        } else {
+            ok = false;
+            exist = false;
+        }
+
+        Ok(Response::new(ValidUserResult {
+            ok,
+            is_exist: exist,
+        }))
     }
 
     async fn get_user(
@@ -74,6 +103,7 @@ impl UserSvr for UserSvrImpl {
     ) -> Result<Response<GetUserResult>, Status> {
         Err(Status::unavailable(""))
     }
+
     async fn update_user(
         &self,
         request: Request<UpdateUserRequest>,
@@ -118,7 +148,7 @@ async fn prepare_all() -> Result<(Client, Vec<Statement>), Error> {
         (username, password, salt, nickname) VALUES 
         ($1, $2, $3, $4)
         RETURNING id",
-        "",
+        "SELECT password from user_tbl where username=$1",
     ];
     let arr = all_sql.iter().map(|&v| client.prepare(v));
 
