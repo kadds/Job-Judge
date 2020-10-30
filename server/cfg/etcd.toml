@@ -1,4 +1,5 @@
 [etcd]
-endpoints=["proj.site:5670"]
-username="jj"
-password="jjpwd"
+endpoints = ["localhost:5670"]
+password = "jjpwd"
+prefix = "/jj"
+username = "jj"

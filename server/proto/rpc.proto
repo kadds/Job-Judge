@@ -1,0 +1,8 @@
+syntax = "proto3";
+package rpc;
+
+message RpcParam {
+    uint64 vid = 1;
+    uint64 tid = 2;
+    uint64 up_nid = 3;
+}
