@@ -1,8 +1,9 @@
 use dotenv::dotenv;
-use log::{debug, error, info, trace, warn};
+use micro_service::{log, service::MicroService};
 use rpc::user_svr_server::{UserSvr, UserSvrServer};
 use rpc::*;
 use std::env;
+use std::sync::Arc;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::time::Duration;
@@ -20,6 +21,7 @@ pub mod user {
 pub struct UserSvrImpl {
     client: Client,
     statements: Vec<Statement>,
+    micro_service: Arc<MicroService>,
 }
 
 #[tonic::async_trait]
@@ -159,7 +161,7 @@ async fn prepare_all() -> Result<(Client, Vec<Statement>), Error> {
     Ok((client, s))
 }
 
-pub async fn get() -> UserSvrServer<UserSvrImpl> {
+pub async fn get(micro_service:Arc<MicroService>) -> UserSvrServer<UserSvrImpl> {
     let (client, s) = match prepare_all().await {
         Ok(v) => v,
         Err(err) => {
@@ -171,5 +173,6 @@ pub async fn get() -> UserSvrServer<UserSvrImpl> {
     return UserSvrServer::new(UserSvrImpl {
         client: client,
         statements: s,
+        micro_service,
     });
 }

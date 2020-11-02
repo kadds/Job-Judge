@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum Error {
     ConnectionFailed,
     Timeout,
@@ -5,4 +6,5 @@ pub enum Error {
     ResourceLimit,
     Unknown,
 }
+
 pub type Result<T> = std::result::Result<T, Error>;

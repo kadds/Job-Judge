@@ -5,34 +5,76 @@ use tokio::time::{delay_for, Duration};
 
 static mut QUEUE: Option<mpsc::Sender<String>> = None;
 
-async fn logger_main(address: String, tx: mpsc::Sender<String>, rx: mpsc::Receiver<String>) {
-    let mut rx = rx;
-    let mut tx = tx;
-    loop {
-        let mut conn = match TcpStream::connect(address.clone()).await {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("{}", e);
-                delay_for(Duration::from_secs(5)).await;
-                continue;
-            }
-        };
-        while let Some(log) = rx.recv().await {
-            if let Err(_) = conn.write_all(log.as_bytes()).await {
-                let _ = tx.send(log).await;
-                break;
+use async_trait::async_trait;
+
+#[async_trait]
+trait LogSender {
+    async fn do_send(&self, tx: mpsc::Sender<String>, rx: mpsc::Receiver<String>);
+}
+
+struct TcpLogger {
+    address: String,
+}
+
+#[async_trait]
+impl LogSender for TcpLogger {
+    async fn do_send(&self, tx: mpsc::Sender<String>, rx: mpsc::Receiver<String>) {
+        let mut rx = rx;
+        let mut tx = tx;
+        loop {
+            let mut conn = match TcpStream::connect(self.address.clone()).await {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    delay_for(Duration::from_secs(5)).await;
+                    continue;
+                }
+            };
+            while let Some(log) = rx.recv().await {
+                if let Err(_) = conn.write_all(log.as_bytes()).await {
+                    let _ = tx.send(log).await;
+                    break;
+                }
             }
         }
     }
 }
 
+struct ConsoleLogger {}
+
+#[async_trait]
+impl LogSender for ConsoleLogger {
+    async fn do_send(&self, tx: mpsc::Sender<String>, rx: mpsc::Receiver<String>) {
+        let mut rx = rx;
+        let _ = tx;
+        while let Some(log) = rx.recv().await {
+            print!("{}", log);
+        }
+    }
+}
+
+async fn tcp_logger_main(address: String, tx: mpsc::Sender<String>, rx: mpsc::Receiver<String>) {
+    let logger = TcpLogger { address };
+    logger.do_send(tx, rx).await;
+}
+
 pub fn init_tcp_logger(address: String) {
     let (tx, rx) = mpsc::channel(10000);
     unsafe {
+        assert!(QUEUE.is_none());
+        QUEUE = Some(tx.clone());
+    }
+    tokio::spawn(tcp_logger_main(address, tx, rx));
+}
+
+pub fn init_console_logger() {
+    let (tx, rx) = mpsc::channel(10000);
+    unsafe {
+        assert!(QUEUE.is_none());
         QUEUE = Some(tx.clone());
     }
 
-    tokio::spawn(logger_main(address, tx, rx));
+    tokio::spawn(ConsoleLogger {}.do_send(tx, rx));
 }
 
 async fn send_log_async(log: String) {
@@ -60,13 +102,12 @@ tokio::task_local! {
     pub static LOG_CONTEXT: Option<LogContext<'static>>;
 }
 #[macro_use]
-
 #[macro_export]
 macro_rules! log {
     ($level:expr, $($log:tt)+) => {
         let (vid, tid, server_name) = $crate::log::LOG_CONTEXT.get().map_or_else(|| (0, 0, ""), |ctx| (ctx.vid, ctx.tid, ctx.server_name));
             $crate::log::send_log(format!(
-                "0 {} {} {} {} {} {}[{}/{}:{}:{}]",
+                "0 {} {} {} {} {} {}[{}/{}:{}:{}]\n",
                 vid,
                 $crate::tool::current_ts(),
                 tid,
