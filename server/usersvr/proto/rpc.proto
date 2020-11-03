@@ -1,45 +1,46 @@
 syntax = "proto3";
 import "user.proto";
-package rpc;
+import "rpc_comm.proto";
+package user.rpc;
 
-message CreateUserRequest { user.UserInfo userinfo = 1; }
+message CreateUserReq { user.UserInfo userinfo = 1; }
 
-message CreateUserResult { uint64 uid = 1; }
+message CreateUserRsp { uint64 uid = 1; }
 
-message ValidUserRequest {
+message ValidUserReq {
   string username = 1;
   // string email = 2;
   string password = 3;
 }
 
-message ValidUserResult {
+message ValidUserRsp {
   bool ok = 1;
   bool is_exist = 2;
 }
 
-message GetUserRequest { uint64 uid = 1; }
+message GetUserReq { uint64 uid = 1; }
 
-message GetUserResult { user.UserInfo userinfo = 1; }
+message GetUserRsp { user.UserInfo userinfo = 1; }
 
-message UpdateUserRequest { user.UserInfo userinfo = 1; }
+message UpdateUserReq { user.UserInfo userinfo = 1; }
 
-message UpdateUserResult { bool ok = 1; }
+message UpdateUserRsp { bool ok = 1; }
 
-message HasUserRequest {
+message HasUserReq {
   string username = 1;
   string email = 2;
 }
 
-message HasUserResult { bool has = 1; }
+message HasUserRsp { bool has = 1; }
 
 service UserSvr {
-  rpc create_user(CreateUserRequest) returns (CreateUserResult);
+  rpc create_user(CreateUserReq) returns (CreateUserRsp);
 
-  rpc valid_user(ValidUserRequest) returns (ValidUserResult);
+  rpc valid_user(ValidUserReq) returns (ValidUserRsp);
 
-  rpc get_user(GetUserRequest) returns (GetUserResult);
+  rpc get_user(GetUserReq) returns (GetUserRsp);
 
-  rpc update_user(UpdateUserRequest) returns (UpdateUserResult);
+  rpc update_user(UpdateUserReq) returns (UpdateUserRsp);
 
-  rpc has_user(HasUserRequest) returns (HasUserResult);
+  rpc has_user(HasUserReq) returns (HasUserRsp);
 }

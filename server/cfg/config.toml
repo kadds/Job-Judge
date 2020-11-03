@@ -1,3 +1,9 @@
+
+[comm]
+log_host = "localhost"
+log_port = 10900
+log_type = "Console"
+
 [etcd]
 endpoints = ["localhost:5670"]
 password = "jjpwd"

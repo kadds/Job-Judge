@@ -1,22 +1,22 @@
 use dotenv::dotenv;
 use micro_service::{log, service::MicroService};
-use rpc::user_svr_server::{UserSvr, UserSvrServer};
-use rpc::*;
 use std::env;
 use std::sync::Arc;
-use std::fs::File;
-use std::io::{Read, Write};
 use std::time::Duration;
 use tokio::time::timeout;
 use tokio_postgres::{Client, Connection, Error, Row, Statement};
 use tonic::{Request, Response, Status};
 
-pub mod rpc {
-    tonic::include_proto!("rpc");
-}
 pub mod user {
+    pub mod rpc {
+        tonic::include_proto!("user.rpc");
+    }
     tonic::include_proto!("user");
 }
+
+use user::rpc::user_svr_server::{UserSvr, UserSvrServer};
+use user::rpc::*;
+use user::*;
 
 pub struct UserSvrImpl {
     client: Client,
@@ -28,8 +28,8 @@ pub struct UserSvrImpl {
 impl UserSvr for UserSvrImpl {
     async fn create_user(
         &self,
-        request: Request<CreateUserRequest>,
-    ) -> Result<Response<CreateUserResult>, Status> {
+        request: Request<CreateUserReq>,
+    ) -> Result<Response<CreateUserRsp>, Status> {
         let req = request.into_inner();
         let userinfo = match req.userinfo {
             Some(v) => v,
@@ -58,13 +58,13 @@ impl UserSvr for UserSvrImpl {
             }
         };
 
-        Ok(Response::new(CreateUserResult { uid: id as u64 }))
+        Ok(Response::new(CreateUserRsp { uid: id as u64 }))
     }
 
     async fn valid_user(
         &self,
-        request: Request<ValidUserRequest>,
-    ) -> Result<Response<ValidUserResult>, Status> {
+        request: Request<ValidUserReq>,
+    ) -> Result<Response<ValidUserRsp>, Status> {
         let req = request.into_inner();
         let mut ok = false;
         let mut exist = false;
@@ -93,7 +93,7 @@ impl UserSvr for UserSvrImpl {
             exist = false;
         }
 
-        Ok(Response::new(ValidUserResult {
+        Ok(Response::new(ValidUserRsp {
             ok,
             is_exist: exist,
         }))
@@ -101,23 +101,23 @@ impl UserSvr for UserSvrImpl {
 
     async fn get_user(
         &self,
-        request: Request<GetUserRequest>,
-    ) -> Result<Response<GetUserResult>, Status> {
+        request: Request<GetUserReq>,
+    ) -> Result<Response<GetUserRsp>, Status> {
         Err(Status::unavailable(""))
     }
 
     async fn update_user(
         &self,
-        request: Request<UpdateUserRequest>,
-    ) -> Result<Response<UpdateUserResult>, Status> {
+        request: Request<UpdateUserReq>,
+    ) -> Result<Response<UpdateUserRsp>, Status> {
         Err(Status::unavailable(""))
 
         //Ok(Response::new(UpdateUserResult {}))
     }
     async fn has_user(
         &self,
-        request: Request<HasUserRequest>,
-    ) -> Result<Response<HasUserResult>, Status> {
+        request: Request<HasUserReq>,
+    ) -> Result<Response<HasUserRsp>, Status> {
         Err(Status::unavailable(""))
         //Ok(Response::new(HasUserResult {}))
     }
@@ -161,7 +161,7 @@ async fn prepare_all() -> Result<(Client, Vec<Statement>), Error> {
     Ok((client, s))
 }
 
-pub async fn get(micro_service:Arc<MicroService>) -> UserSvrServer<UserSvrImpl> {
+pub async fn get(micro_service: Arc<MicroService>) -> UserSvrServer<UserSvrImpl> {
     let (client, s) = match prepare_all().await {
         Ok(v) => v,
         Err(err) => {

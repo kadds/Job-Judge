@@ -1,6 +1,6 @@
 use super::cfg::EtcdConfig;
 use super::error::{Error, Result};
-use super::load_balancer::{LoadBalancer, ServerChangeType};
+use super::load_balancer::*;
 use super::log;
 use super::ServerInfo;
 use std::net::SocketAddr;
@@ -8,7 +8,7 @@ use std::time::Duration;
 use tokio::stream::StreamExt;
 use tokio::time::delay_for;
 use tonic;
-use tonic::transport::{Channel, Endpoint};
+use tokio::signal;
 
 use etcd_rs::{
     Client, ClientConfig, EventType, KeyRange, Kv, Lease, LeaseGrantRequest, LeaseGrantResponse,
@@ -35,20 +35,21 @@ pub struct MicroService {
     map: RwLock<LoadBalancerHashMap>,
 }
 
-impl MicroService {
+impl MicroService{
     pub async fn init(
         etcd_config: EtcdConfig,
         module: String,
         name: String,
-        address: SocketAddr,
+        address: String,
         ttl: Duration,
         retry_times: u32,
     ) -> Result<Arc<MicroService>> {
+        super::error::panic_hook();
         assert!(ttl >= Duration::from_secs(60));
         for i in 0..retry_times {
             let client = Client::connect(ClientConfig {
                 endpoints: etcd_config.endpoints.to_owned(),
-                auth: Some((etcd_config.user.to_owned(), etcd_config.password.to_owned())),
+                auth: Some((etcd_config.username.to_owned(), etcd_config.password.to_owned())),
                 tls: None,
             })
             .await;
@@ -90,10 +91,11 @@ impl MicroService {
                             res.etcd_config.prefix, res.module, res.name
                         ),
                         ServerInfo {
-                            address: address.to_string(),
+                            address: address,
                         }
                         .to_json(),
                     );
+                    // put server address to etcd
                     req.set_lease(res.lease_id);
                     match res.etcd.kv().put(req).await {
                         Ok(v) => v,
@@ -115,7 +117,7 @@ impl MicroService {
         Err(Error::ConnectionFailed)
     }
 
-    async fn ttl_main(self: Arc<MicroService>, ttl: Duration) {
+    async fn ttl_main(self: Arc<Self>, ttl: Duration) {
         let mut stop_rx = self.stop_signal_rx.clone();
         let mut is_running = true;
         let ttl = ttl - Duration::from_secs(10);
@@ -128,7 +130,7 @@ impl MicroService {
             tokio::select! {
                 _  = match res {
                     Ok(_) => delay_for(ttl),
-                    Err(err) => delay_for(Duration::from_secs(1)),
+                    Err(err) => {warn!("send ttl fail {}", err); delay_for(Duration::from_secs(1))},
                 } => {},
                 Some(_) = stop_rx.recv() =>{
                     is_running = false;
@@ -140,19 +142,21 @@ impl MicroService {
         let _ = self.etcd.lease().shutdown().await;
     }
 
-    async fn listen_module(
-        &mut self,
+    pub async fn listen_module(
+        self: Arc<Self>,
         module: String,
         load_balancer: Box<dyn LoadBalancer>,
     ) -> Option<()> {
-        self.map
+        let res = self.map
             .write()
             .await
             .insert(module.to_owned(), load_balancer)
-            .map(|_| ())
+            .map(|_| ());
+        tokio::spawn(self.watch_main(module));
+        res
     }
 
-    async fn watch_main(self: Arc<MicroService>, module: String) -> Result<()> {
+    async fn watch_main(self: Arc<Self>, module: String) -> Result<()> {
         let mut wc = self.etcd.watch_client();
         let mut inbound = wc
             .watch(KeyRange::prefix(self.etcd_config.prefix.clone() + &module))
@@ -162,7 +166,7 @@ impl MicroService {
             let mut vec = match r {
                 Ok(v) => v,
                 Err(err) => {
-                    error!("watch server failed");
+                    error!("watch server fail {}", err);
                     return Err(Error::ResourceLimit);
                 }
             };
@@ -196,29 +200,33 @@ impl MicroService {
             let load_balancer = map.get_mut(&module).unwrap();
 
             if put_vec.len() > 0 {
-                load_balancer.on_update(put_vec, ServerChangeType::Add);
+                load_balancer
+                    .on_update(put_vec, ServerChangeType::Add)
+                    .await;
             }
             if del_vec.len() > 0 {
-                load_balancer.on_update(del_vec, ServerChangeType::Remove);
+                load_balancer
+                    .on_update(del_vec, ServerChangeType::Remove)
+                    .await;
             }
         }
 
         Ok(())
     }
 
-    async fn get_remote_channel(
+    pub async fn get_channel(
         &self,
-        module: String,
+        module: &str,
         uin: u64,
         flags: u64,
     ) -> Option<tonic::transport::Channel> {
-        if let Some(load_balancer) = self.map.read().await.get(&module) {
-            return load_balancer.get_server(uin, flags);
+        if let Some(load_balancer) = self.map.read().await.get(module) {
+            return load_balancer.get_server(uin, flags).await;
         }
         None
     }
 
     async fn stop(&self) {
-        self.stop_signal.broadcast(0);
+        let _ = self.stop_signal.broadcast(0);
     }
 }

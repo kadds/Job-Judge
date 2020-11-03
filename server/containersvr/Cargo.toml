@@ -1,22 +1,21 @@
 [package]
-name = "containersvr"
-version = "0.1.0"
 authors = ["kadds <itmyxyf@gmail.com>"]
 edition = "2018"
+name = "containersvr"
+version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "0.2", features = ["full"] }
-tonic = "0.2"
 bollard = "0.5"
-liblog = { path = "../liblog" }
-log = "0.4"
 lazy_static = "1.4"
-serde = { version = "1.0", features = ["derive"] }
+liblog = {path = "../liblog"}
+log = "0.4"
+micro-service = {path = "../micro-service"}
+serde = {version = "1.0", features = ["derive"]}
+tokio = {version = "0.2", features = ["full"]}
 toml = "0.5"
-micro-service = { path = "../micro-service" }
-
+tonic = "0.2"
 
 [build-dependencies]
 tonic-build = "0.2"

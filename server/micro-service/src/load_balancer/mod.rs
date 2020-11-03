@@ -1,30 +1,36 @@
 use crate::ServerInfo;
 use std::collections::HashMap;
 use tonic::transport::{Channel, Endpoint};
+pub mod random;
+use async_trait::async_trait;
+pub use random::*;
+use tokio::sync::Mutex;
 
 pub enum ServerChangeType {
     Add,
     Remove,
 }
 
+#[async_trait]
 pub trait LoadBalancer: Sync + Send {
-    fn get_server(&self, uin: u64, flags: u64) -> Option<Channel>;
-    fn on_update(&mut self, s: Vec<(String, ServerInfo)>, change_type: ServerChangeType);
-    fn on_rpc_update(&mut self, s: Vec<(String, ServerInfo)>);
+    async fn get_server(&self, uin: u64, flags: u64) -> Option<Channel>;
+    async fn on_update(&mut self, s: Vec<(String, ServerInfo)>, change_type: ServerChangeType);
+    async fn on_rpc_update(&mut self, s: Vec<(String, ServerInfo)>);
 }
 
-struct ClientCache {
-    map: HashMap<String, Channel>,
+pub struct ClientCache {
+    map: Mutex<HashMap<String, Channel>>,
 }
 
 impl ClientCache {
     fn new() -> ClientCache {
         ClientCache {
-            map: HashMap::<String, Channel>::new(),
+            map: Mutex::new(HashMap::<String, Channel>::new()),
         }
     }
-    async fn get_client(&mut self, address: &str) -> Option<Channel> {
-        if !self.map.contains_key(address) {
+    async fn get_client(&self, address: &str) -> Option<Channel> {
+        if !self.map.lock().await.contains_key(address) {
+            // FIXME: connect once
             let channel = match Endpoint::from_shared(format!("http://{}", address))
                 .unwrap()
                 .connect()
@@ -36,8 +42,8 @@ impl ClientCache {
                     return None;
                 }
             };
-            self.map.insert(address.to_string(), channel);
+            self.map.lock().await.insert(address.to_string(), channel);
         }
-        self.map.get(address).map(|v| v.clone())
+        self.map.lock().await.get(address).map(|v| v.clone())
     }
 }

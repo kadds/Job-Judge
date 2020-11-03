@@ -3,10 +3,12 @@ use std::path::PathBuf;
 
 fn main() {
     tonic_build::configure()
-        .build_server(true)
+        .build_server(false)
+        .build_client(true)
+        .type_attribute(".", "#[derive(Serialize, Deserialize)]")
         .compile(
-            &["../proto/runner.proto"],
-            &["../compilation/proto/", "../proto"],
+            &["../proto/runner.proto", "../proto/user.proto", "../usersvr/proto/rpc.proto"],
+            &["../proto", "../usersvr/proto"],
         )
         .unwrap();
 }

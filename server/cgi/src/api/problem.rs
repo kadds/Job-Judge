@@ -27,7 +27,7 @@ pub struct ProblemInfo {
 }
 
 #[get("/{id}")]
-pub async fn problem(path: Path<(u64,)>) -> impl Responder {
+pub async fn problem(path: Path<(u64)>) -> impl Responder {
     HttpResponse::Ok().json(ProblemInfo {
         id: path.0,
         title: "test".to_owned(),

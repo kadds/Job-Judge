@@ -35,6 +35,7 @@ impl LogSender for TcpLogger {
                     let _ = tx.send(log).await;
                     break;
                 }
+                let _ = conn.write_all(b"\x04").await;
             }
         }
     }
@@ -48,7 +49,7 @@ impl LogSender for ConsoleLogger {
         let mut rx = rx;
         let _ = tx;
         while let Some(log) = rx.recv().await {
-            print!("{}", log);
+            print!("{}\n", log);
         }
     }
 }
@@ -99,15 +100,15 @@ pub struct LogContext<'a> {
 }
 
 tokio::task_local! {
-    pub static LOG_CONTEXT: Option<LogContext<'static>>;
+    pub static LOG_CONTEXT: LogContext<'static>;
 }
-#[macro_use]
+
 #[macro_export]
 macro_rules! log {
     ($level:expr, $($log:tt)+) => {
-        let (vid, tid, server_name) = $crate::log::LOG_CONTEXT.get().map_or_else(|| (0, 0, ""), |ctx| (ctx.vid, ctx.tid, ctx.server_name));
+        let (vid, tid, server_name) = $crate::log::LOG_CONTEXT.try_with(|v| *v).map_or_else(|_| (0, 0, ""), |ctx| (ctx.vid, ctx.tid, ctx.server_name));
             $crate::log::send_log(format!(
-                "0 {} {} {} {} {} {}[{}/{}:{}:{}]\n",
+                "0 {} {} {} {} {} {} [{}:{}:{}:{}]",
                 vid,
                 $crate::tool::current_ts(),
                 tid,
