@@ -226,7 +226,7 @@ impl MicroService{
         None
     }
 
-    async fn stop(&self) {
+    pub fn stop(&self) {
         let _ = self.stop_signal.broadcast(0);
     }
 }

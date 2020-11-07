@@ -27,7 +27,7 @@ async fn main() {
 
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
 
-    let mut listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let server_name = var("SERVER_NAME").unwrap();
     let host = var("HOST_IP").unwrap();
