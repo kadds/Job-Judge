@@ -1,11 +1,10 @@
-
 [comm]
 log_host = "localhost"
-log_port = 10900
-log_type = "Console"
+log_port = 10900 # received by agent
+log_type = "Tcp" # Tcp or Console
 
 [etcd]
-endpoints = ["localhost:5670"]
-password = "jjpwd"
-prefix = "/jj"
-username = "jj"
+endpoints = ["your_endpoints"]
+password = "your_password"
+prefix = "your_prefix"
+username = "your_username"
