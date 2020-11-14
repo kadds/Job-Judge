@@ -41,11 +41,12 @@ impl MicroService{
         module: String,
         name: String,
         address: String,
-        ttl: Duration,
         retry_times: u32,
     ) -> Result<Arc<MicroService>> {
         super::error::panic_hook();
-        assert!(ttl >= Duration::from_secs(60));
+        assert!(etcd_config.ttl >= 30);
+        debug!("connecting micro-service center address {:?}", etcd_config.endpoints);
+        let ttl = Duration::from_secs(etcd_config.ttl.into());
         for i in 0..retry_times {
             let client = Client::connect(ClientConfig {
                 endpoints: etcd_config.endpoints.to_owned(),
@@ -229,4 +230,14 @@ impl MicroService{
     pub fn stop(&self) {
         let _ = self.stop_signal.broadcast(0);
     }
+}
+
+#[macro_export]
+macro_rules! register_module_with_random {
+    ($ms:expr, $module: expr) => {
+        $ms.listen_module(
+            $module.into(),
+            Box::new($crate::load_balancer::RandomLoadBalancer::new()),
+        ).await;
+    };
 }

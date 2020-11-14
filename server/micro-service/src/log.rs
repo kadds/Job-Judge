@@ -54,6 +54,7 @@ impl LogSender for ConsoleLogger {
     }
 }
 
+#[tokio::main(core_threads = 1, max_threads = 1)]
 async fn tcp_logger_main(address: String, tx: mpsc::Sender<String>, rx: mpsc::Receiver<String>) {
     let logger = TcpLogger { address };
     logger.do_send(tx, rx).await;
@@ -65,7 +66,13 @@ pub fn init_tcp_logger(address: String) {
         assert!(QUEUE.is_none());
         QUEUE = Some(tx.clone());
     }
-    tokio::spawn(tcp_logger_main(address, tx, rx));
+    std::thread::spawn(|| tcp_logger_main(address, tx, rx));
+}
+
+#[tokio::main(core_threads = 1, max_threads = 1)]
+async fn console_logger_main(tx: mpsc::Sender<String>, rx: mpsc::Receiver<String>) {
+    let logger = ConsoleLogger {};
+    logger.do_send(tx, rx).await;
 }
 
 pub fn init_console_logger() {
@@ -75,19 +82,15 @@ pub fn init_console_logger() {
         QUEUE = Some(tx.clone());
     }
 
-    tokio::spawn(ConsoleLogger {}.do_send(tx, rx));
-}
-
-async fn send_log_async(log: String) {
-    unsafe {
-        if let Some(q) = &mut QUEUE {
-            let _ = q.send(log).await;
-        }
-    }
+    std::thread::spawn(|| console_logger_main(tx, rx));
 }
 
 pub fn send_log(log: String) {
-    tokio::spawn(send_log_async(log));
+    unsafe {
+        if let Some(q) = &mut QUEUE {
+            let _ = q.try_send(log);
+        }
+    }
 }
 
 #[derive(Clone, Copy)]

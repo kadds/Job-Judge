@@ -5,6 +5,7 @@ pub struct EtcdConfig {
     pub username: String,
     pub password: String,
     pub prefix: String,
+    pub ttl: u32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

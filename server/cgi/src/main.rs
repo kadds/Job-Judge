@@ -18,7 +18,7 @@ pub static mut MS: Option<Arc<micro_service::service::MicroService>> = None;
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     let module = "cgi";
-    let port = 8080;
+    let port: u16 = 8080;
 
     let config = tokio::fs::read("./config.toml").await.unwrap();
     let config: micro_service::cfg::MicroServiceCommConfig =
@@ -42,7 +42,6 @@ async fn main() -> std::io::Result<()> {
         module.to_string(),
         server_name,
         format!("{}:{}", host, port).parse().unwrap(),
-        Duration::from_secs(60 * 2),
         3,
     )
     .await
@@ -50,12 +49,7 @@ async fn main() -> std::io::Result<()> {
     unsafe {
         MS = Some(ms.clone());
     }
-
-    ms.listen_module(
-        "usersvr".to_string(),
-        Box::new(micro_service::load_balancer::RandomLoadBalancer::new()),
-    ).await;
-
+    register_module_with_random!(ms, "usersvr");
 
     HttpServer::new(|| {
         App::new()

@@ -8,3 +8,4 @@ endpoints = ["your_endpoints"]
 password = "your_password"
 prefix = "your_prefix"
 username = "your_username"
+ttl = 60 # 60 seconds
