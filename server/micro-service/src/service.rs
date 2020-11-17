@@ -3,18 +3,17 @@ use super::error::{Error, Result};
 use super::load_balancer::*;
 use super::log;
 use super::ServerInfo;
-use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::stream::StreamExt;
 use tokio::time::delay_for;
 use tonic;
-use tokio::signal;
+use tokio::signal::unix::{signal, SignalKind};
 
 use etcd_rs::{
     Client, ClientConfig, EventType, KeyRange, Kv, Lease, LeaseGrantRequest, LeaseGrantResponse,
-    LeaseKeepAliveRequest, LeaseKeepAliveResponse, PutRequest, PutResponse,
+    LeaseKeepAliveRequest, LeaseKeepAliveResponse, PutRequest, PutResponse, DeleteRequest, DeleteResponse
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::sync::{atomic::AtomicUsize, Arc};
 use tokio::sync::{watch, RwLock};
 
@@ -30,8 +29,6 @@ pub struct MicroService {
     lease_id: u64,
     // channel for stop signal
     stop_signal: watch::Sender<u64>,
-    stop_signal_rx: watch::Receiver<u64>,
-
     map: RwLock<LoadBalancerHashMap>,
 }
 
@@ -42,10 +39,10 @@ impl MicroService{
         name: String,
         address: String,
         retry_times: u32,
-    ) -> Result<Arc<MicroService>> {
+    )-> Result<Arc<MicroService>> {
         super::error::panic_hook();
         assert!(etcd_config.ttl >= 30);
-        debug!("connecting micro-service center address {:?}", etcd_config.endpoints);
+        debug!("connecting micro-service center address {:?} at prefix {}", etcd_config.endpoints, etcd_config.prefix);
         let ttl = Duration::from_secs(etcd_config.ttl.into());
         for i in 0..retry_times {
             let client = Client::connect(ClientConfig {
@@ -67,7 +64,7 @@ impl MicroService{
                             v.id()
                         }
                         Err(e) => {
-                            error!("request lease fail result {}", e);
+                            error!("request lease fail result {:?}", e);
                             return Err(Error::ResourceLimit);
                         }
                     };
@@ -82,7 +79,6 @@ impl MicroService{
                         lease_id,
                         map: RwLock::<LoadBalancerHashMap>::new(LoadBalancerHashMap::new()),
                         stop_signal,
-                        stop_signal_rx,
                     });
 
                     // write server config
@@ -101,15 +97,16 @@ impl MicroService{
                     match res.etcd.kv().put(req).await {
                         Ok(v) => v,
                         Err(e) => {
-                            error!("write server info (etcd) fail result {}", e);
+                            error!("write server info (etcd) fail result {:?}", e);
                             return Err(Error::Unknown);
                         }
                     };
-                    tokio::spawn(res.clone().ttl_main(ttl));
+                    tokio::spawn(res.clone().ttl_main(ttl, stop_signal_rx.clone()));
+                    tokio::spawn(res.clone().watch_signal_stop_main(stop_signal_rx.clone()));
                     return Ok(res);
                 }
                 Err(e) => {
-                    warn!("etcd connect fail result {} at {}", e, i);
+                    warn!("etcd connect fail result {:?} times {}", e, i);
                 }
             }
         }
@@ -118,29 +115,35 @@ impl MicroService{
         Err(Error::ConnectionFailed)
     }
 
-    async fn ttl_main(self: Arc<Self>, ttl: Duration) {
-        let mut stop_rx = self.stop_signal_rx.clone();
-        let mut is_running = true;
+    async fn ttl_main(self: Arc<Self>, ttl: Duration, stop_rx: watch::Receiver<u64>) {
+        let mut stop_rx = stop_rx;
         let ttl = ttl - Duration::from_secs(10);
-        while is_running {
+        let _ = stop_rx.recv().await;
+        loop {
             let res = self
                 .etcd
                 .lease()
                 .keep_alive(LeaseKeepAliveRequest::new(self.lease_id))
                 .await;
+            let target = match res {
+                Ok(_) => delay_for(ttl),
+                Err(err) => { warn!("send ttl message fail {:?}", err); delay_for(Duration::from_secs(1))}
+            };
             tokio::select! {
-                _  = match res {
-                    Ok(_) => delay_for(ttl),
-                    Err(err) => {warn!("send ttl fail {}", err); delay_for(Duration::from_secs(1))},
-                } => {},
-                Some(_) = stop_rx.recv() =>{
-                    is_running = false;
-                    ()
+                _ = target => {},
+                Some(v) = stop_rx.recv() => {
+                    break;
                 }
             }
         }
+        let _ = self.etcd.watch_client().shutdown().await;
         // close lease
         let _ = self.etcd.lease().shutdown().await;
+        // remove key on etcd 
+        let _ = self.etcd.kv().delete(DeleteRequest::new(
+            KeyRange::prefix(format!("{}/{}/{}", self.etcd_config.prefix, self.module, self.name)))
+        ).await;
+        info!("ttl main is stopped. lease removed");
     }
 
     pub async fn listen_module(
@@ -228,8 +231,28 @@ impl MicroService{
     }
 
     pub fn stop(&self) {
+        debug!("stop signal is sent");
         let _ = self.stop_signal.broadcast(0);
     }
+
+    async fn watch_signal_stop_main(self: Arc<Self>, stop_rx: watch::Receiver<u64>) {
+        let mut stop_rx = stop_rx;
+        let mut sigint = signal(SignalKind::interrupt()).unwrap();
+        let mut sigquit = signal(SignalKind::quit()).unwrap();
+        let mut sigter = signal(SignalKind::terminate()).unwrap();
+        let _ = stop_rx.recv().await;
+        tokio::select! {
+            _ = sigint.recv() => {},
+            _=sigquit.recv() => {},
+            _= sigter.recv() => {},
+            Some(_) = stop_rx.recv() => {
+            },
+        };
+        info!("recv stop signal");
+        let _ = self.stop_signal.broadcast(0);
+        // TODO: async callback
+    }
+
 }
 
 #[macro_export]
