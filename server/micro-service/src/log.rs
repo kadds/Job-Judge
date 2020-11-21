@@ -109,7 +109,7 @@ tokio::task_local! {
 #[macro_export]
 macro_rules! log {
     ($level:expr, $($log:tt)+) => {
-        let (vid, tid, server_name) = $crate::log::LOG_CONTEXT.try_with(|v| *v).map_or_else(|_| (0, 0, ""), |ctx| (ctx.vid, ctx.tid, ctx.server_name));
+        let (vid, tid, server_name) = $crate::log::LOG_CONTEXT.try_with(|v| *v).map_or_else(|_| (0, 0, "UNKNOWN"), |ctx| (ctx.vid, ctx.tid, ctx.server_name));
             $crate::log::send_log(format!(
                 "0 {} {} {} {} {} {} [{}:{}:{}:{}]",
                 vid,
@@ -156,7 +156,23 @@ macro_rules! debug {
 
 #[macro_export]
 macro_rules! click_log {
-    () => {};
+    ($ts: tt, $cost: tt, $method: tt, $url: tt, $host: tt, $return_code: tt, $return_length: tt) => {
+        let (vid, tid, nid, server_name) = $crate::log::LOG_CONTEXT.try_with(|v| *v).map_or_else(|_| (0, 0, 0, "UNKNOWN"), |ctx| (ctx.vid, ctx.tid, ctx.nid, ctx.server_name));
+        $crate::log::send_log(format!(
+            "1 {} {} {} {} {} {} {} {} {} {} {}",
+            vid,
+            $ts,
+            tid,
+            nid,
+            server_name,
+            $cost,
+            $method,
+            $url,
+            $host,
+            $return_code,
+            $return_length
+        ))
+    };
 }
 
 #[macro_export]

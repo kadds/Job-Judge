@@ -1,11 +1,13 @@
 extern crate actix_rt;
 extern crate prost;
 extern crate actix_web;
+extern crate futures;
 #[macro_use]
 extern crate micro_service;
 
 mod rpc;
 mod api;
+mod middleware;
 use actix_web::{web, App, HttpServer};
 use micro_service::service::MicroService;
 use micro_service::cfg;
@@ -53,6 +55,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(|| {
         App::new()
+            .wrap(middleware::logger::Logger)
             .service(
                 web::scope("/user")
                     .service(api::user::login)
@@ -65,6 +68,10 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/judge")
                     .service(api::judge::commit)
                     .service(api::judge::lang_list),
+            )
+            .service(
+                web::scope("/comm")
+                    .service(api::comm::ping)
             )
             .service(web::scope("/problem").service(api::problem::problem))
             .service(web::scope("/run").service(api::run::run_source))

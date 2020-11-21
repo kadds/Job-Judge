@@ -1,6 +1,6 @@
 use actix_web::{
     connect, delete, get, head, options, patch, post, put, trace, web::Path, HttpResponse,
-    Responder,
+    Responder
 };
 use crate::rpc::*;
 use crate::MS;

@@ -10,8 +10,8 @@ use tonic;
 use tokio::signal::unix::{signal, SignalKind};
 
 use etcd_rs::{
-    Client, ClientConfig, EventType, KeyRange, Kv, Lease, LeaseGrantRequest, LeaseGrantResponse,
-    LeaseKeepAliveRequest, LeaseKeepAliveResponse, PutRequest, PutResponse, DeleteRequest, DeleteResponse
+    Client, ClientConfig, EventType, KeyRange, LeaseGrantRequest,
+    LeaseKeepAliveRequest, PutRequest, DeleteRequest, DeleteResponse
 };
 use std::collections::{HashMap};
 use std::sync::{atomic::AtomicUsize, Arc};
