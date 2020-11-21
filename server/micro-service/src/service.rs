@@ -11,10 +11,10 @@ use tokio::signal::unix::{signal, SignalKind};
 
 use etcd_rs::{
     Client, ClientConfig, EventType, KeyRange, LeaseGrantRequest,
-    LeaseKeepAliveRequest, PutRequest, DeleteRequest, DeleteResponse
+    LeaseKeepAliveRequest, PutRequest, DeleteRequest
 };
 use std::collections::{HashMap};
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::sync::Arc;
 use tokio::sync::{watch, RwLock};
 
 type LoadBalancerHashMap = HashMap<String, Box<dyn LoadBalancer>>;
@@ -25,7 +25,7 @@ pub struct MicroService {
     // module name
     module: String,
     // micro service name
-    name: String,
+    name: Arc<String>,
     lease_id: u64,
     // channel for stop signal
     stop_signal: watch::Sender<u64>,
@@ -42,7 +42,7 @@ impl MicroService{
     )-> Result<Arc<MicroService>> {
         super::error::panic_hook();
         assert!(etcd_config.ttl >= 30);
-        debug!("connecting micro-service center address {:?} at prefix {}", etcd_config.endpoints, etcd_config.prefix);
+        early_log!("debug", name, "connecting micro-service center address {:?} at prefix {}", etcd_config.endpoints, etcd_config.prefix);
         let ttl = Duration::from_secs(etcd_config.ttl.into());
         for i in 0..retry_times {
             let client = Client::connect(ClientConfig {
@@ -57,14 +57,14 @@ impl MicroService{
                     let lease_id = match client.lease().grant(LeaseGrantRequest::new(ttl)).await {
                         Ok(v) => {
                             if v.id() == 0 {
-                                error!("request lease fail, lease id returns 0");
+                                early_log_error!(name, "request lease fail, lease id returns 0");
                                 return Err(Error::ResourceLimit);
                             }
-                            info!("request lease id is {}", v.id());
+                            early_log_info!(name, "request lease id is {}", v.id());
                             v.id()
                         }
                         Err(e) => {
-                            error!("request lease fail result {:?}", e);
+                            early_log_error!(name, "request lease fail result {:?}", e);
                             return Err(Error::ResourceLimit);
                         }
                     };
@@ -74,7 +74,7 @@ impl MicroService{
                     let res = Arc::new(MicroService {
                         etcd: client,
                         etcd_config,
-                        name,
+                        name: Arc::new(name),
                         module,
                         lease_id,
                         map: RwLock::<LoadBalancerHashMap>::new(LoadBalancerHashMap::new()),
@@ -97,21 +97,22 @@ impl MicroService{
                     match res.etcd.kv().put(req).await {
                         Ok(v) => v,
                         Err(e) => {
-                            error!("write server info (etcd) fail result {:?}", e);
+                            let name = res.name.clone();
+                            early_log_error!(name, "write server info (etcd) fail result {:?}", e);
                             return Err(Error::Unknown);
                         }
                     };
-                    tokio::spawn(res.clone().ttl_main(ttl, stop_signal_rx.clone()));
-                    tokio::spawn(res.clone().watch_signal_stop_main(stop_signal_rx.clone()));
+                    tokio::spawn(log::make_context(0, 0, 0, 0, res.name.clone(), res.clone().ttl_main(ttl, stop_signal_rx.clone())));
+                    tokio::spawn(log::make_context(0, 0, 0, 0, res.name.clone(), res.clone().watch_signal_stop_main(stop_signal_rx.clone())));
                     return Ok(res);
                 }
                 Err(e) => {
-                    warn!("etcd connect fail result {:?} times {}", e, i);
+                    early_log_warn!(name, "etcd connect fail result {:?} times {}", e, i);
                 }
             }
         }
 
-        error!("etcd connect failed. try {} times", retry_times);
+        early_log_error!(name, "etcd connect failed. try {} times", retry_times);
         Err(Error::ConnectionFailed)
     }
 
@@ -131,7 +132,7 @@ impl MicroService{
             };
             tokio::select! {
                 _ = target => {},
-                Some(v) = stop_rx.recv() => {
+                Some(_) = stop_rx.recv() => {
                     break;
                 }
             }
@@ -156,7 +157,7 @@ impl MicroService{
             .await
             .insert(module.to_owned(), load_balancer)
             .map(|_| ());
-        tokio::spawn(self.watch_main(module));
+        tokio::spawn(log::make_context(0, 0, 0, 0, self.name.clone(), self.watch_main(module)));
         res
     }
 
@@ -243,7 +244,7 @@ impl MicroService{
         let _ = stop_rx.recv().await;
         tokio::select! {
             _ = sigint.recv() => {},
-            _=sigquit.recv() => {},
+            _= sigquit.recv() => {},
             _= sigter.recv() => {},
             Some(_) = stop_rx.recv() => {
             },
@@ -251,6 +252,9 @@ impl MicroService{
         info!("recv stop signal");
         let _ = self.stop_signal.broadcast(0);
         // TODO: async callback
+    }
+    pub fn get_server_name(&self) -> Arc<String> {
+        self.name.clone()
     }
 
 }

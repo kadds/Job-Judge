@@ -13,7 +13,6 @@ use micro_service::service::MicroService;
 use micro_service::cfg;
 use std::env::var;
 use std::sync::Arc;
-use std::time::Duration;
 
 pub static mut MS: Option<Arc<micro_service::service::MicroService>> = None;
 
@@ -38,7 +37,7 @@ async fn main() -> std::io::Result<()> {
     let server_name = var("SERVER_NAME").unwrap();
     let host = var("HOST_IP").unwrap();
 
-    info!("init service info: module {} server {} bind at {}:{}", module, server_name, host, port);
+    early_log_info!(server_name, "init service info: module {} server {} bind at {}:{}", module, server_name, host, port);
     let ms = MicroService::init(
         config.etcd,
         module.to_string(),
@@ -51,11 +50,11 @@ async fn main() -> std::io::Result<()> {
     unsafe {
         MS = Some(ms.clone());
     }
-    register_module_with_random!(ms, "usersvr");
+    register_module_with_random!(ms.clone(), "usersvr");
 
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         App::new()
-            .wrap(middleware::logger::Logger)
+            .wrap(middleware::logger::Logger::new(ms.clone()))
             .service(
                 web::scope("/user")
                     .service(api::user::login)

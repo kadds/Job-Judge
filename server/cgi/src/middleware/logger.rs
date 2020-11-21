@@ -4,9 +4,18 @@ use std::task::{Context, Poll};
 use actix_web::{dev::ServiceRequest, dev::ServiceResponse, Error, dev::Service, dev::Transform, dev::ResponseBody, dev::Body, dev::BodySize};
 use futures::future::{ok, Ready};
 use futures::Future;
-use micro_service::tool;
+use micro_service::{log, tool};
+use std::sync::Arc;
 
-pub struct Logger;
+pub struct Logger {
+    ms: Arc<micro_service::service::MicroService>
+}
+
+impl Logger {
+    pub fn new(ms: Arc<micro_service::service::MicroService>) -> Logger {
+        Logger { ms }
+    }
+}
 
 impl<S, B> Transform<S> for Logger
 where
@@ -22,12 +31,13 @@ where
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ok(LoggerMiddleware { service })
+        ok(LoggerMiddleware { service, ms: self.ms.clone()})
     }
 }
 
 pub struct LoggerMiddleware<S> {
     service: S,
+    ms: Arc<micro_service::service::MicroService>,
 }
 
 impl<S, B> Service for LoggerMiddleware<S>
@@ -47,15 +57,19 @@ where
 
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
         let ts = tool::current_ts();
+        let vid = 0;
+        let nid = tool::gen_nid();
+        let tid = tool::gen_tid();
         
         let fut = self.service.call(req);
+        let server_name = self.ms.get_server_name().clone();
 
-        Box::pin(async move {
+        Box::pin(log::make_context(vid, tid, nid, 0, server_name, async move {
             let res = fut.await?;
             let req = res.request();
             let method = req.method();
             let uri = req.uri();
-            let path = req.path();
+            // let path = req.path();
             let host = req.peer_addr().map_or_else(|| "0.0.0.0:0".to_string(), |v| v.to_string());
             let cost = tool::current_ts() - ts;
             let status = res.status().as_u16();
@@ -70,9 +84,8 @@ where
                     _ => 0,
                 }
             };
-
             click_log!(ts, cost, method, uri, host, status, len);
             Ok(res)
-        })
+        }))
     }
 }

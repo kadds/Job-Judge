@@ -2,6 +2,8 @@ use tokio::net::TcpStream;
 use tokio::prelude::*;
 use tokio::sync::mpsc;
 use tokio::time::{delay_for, Duration};
+use std::future::Future;
+use std::sync::Arc;
 
 static mut QUEUE: Option<mpsc::Sender<String>> = None;
 
@@ -93,36 +95,110 @@ pub fn send_log(log: String) {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct LogContext<'a> {
+#[derive(Clone)]
+pub struct LogContext{
     pub vid: u64,
     pub tid: u64,
     pub nid: u64,
     pub pnid: u64,
-    pub server_name: &'a str,
+    pub server_name: Arc<String>,
 }
 
 tokio::task_local! {
-    pub static LOG_CONTEXT: LogContext<'static>;
+    pub static LOG_CONTEXT: LogContext;
 }
+
+pub async fn make_context<T, F>(vid: u64, tid: u64, nid: u64, pnid: u64, server_name: Arc<String>, future: F) -> T
+    where
+        F: Future<Output = T>
+{
+    LOG_CONTEXT.scope(LogContext{
+        vid,
+        tid,
+        nid,
+        pnid,
+        server_name
+    }, future).await
+}
+
+#[macro_export]
+macro_rules! early_log {
+    ($level: tt, $server: tt, $($log: tt)+)=> {
+        $crate::log::send_log(format!(
+            "0 0 {} 0 {} {} {} [{}:{}:{}:{}]",
+            $crate::tool::current_ts(),
+            $level,
+            $server,
+            std::format_args!($($log)+),
+            std::module_path!(),
+            std::file!(),
+            std::line!(),
+            std::column!(),
+        ))
+    }
+}
+
+#[macro_export]
+macro_rules! early_log_error {
+    ($($log: tt)+) => {
+        early_log!("error", $($log)+);
+    };
+}
+
+#[macro_export]
+macro_rules! early_log_warn {
+    ($($log: tt)+) => {
+        early_log!("warn", $($log)+);
+    };
+}
+
+#[macro_export]
+macro_rules! early_log_info {
+    ($($log: tt)+) => {
+        early_log!("info", $($log)+);
+    };
+}
+
+#[macro_export]
+macro_rules! early_log_debug {
+    ($($log: tt)+) => {
+        early_log!("debug", $($log)+);
+    };
+}
+
 
 #[macro_export]
 macro_rules! log {
     ($level:expr, $($log:tt)+) => {
-        let (vid, tid, server_name) = $crate::log::LOG_CONTEXT.try_with(|v| *v).map_or_else(|_| (0, 0, "UNKNOWN"), |ctx| (ctx.vid, ctx.tid, ctx.server_name));
-            $crate::log::send_log(format!(
-                "0 {} {} {} {} {} {} [{}:{}:{}:{}]",
-                vid,
-                $crate::tool::current_ts(),
-                tid,
-                server_name,
-                $level,
-                std::format_args!($($log)+),
-                std::module_path!(),
-                std::file!(),
-                std::line!(),
-                std::column!(),
-            ))
+        match $crate::log::LOG_CONTEXT.try_with(|v| v.clone()) {
+            Ok(v) => {
+                $crate::log::send_log(format!(
+                    "0 {} {} {} {} {} {} [{}:{}:{}:{}]",
+                    v.vid,
+                    $crate::tool::current_ts(),
+                    v.tid,
+                    &v.server_name,
+                    $level,
+                    std::format_args!($($log)+),
+                    std::module_path!(),
+                    std::file!(),
+                    std::line!(),
+                    std::column!(),
+                ))
+            },
+            Err(_) => {
+                $crate::log::send_log(format!(
+                    "0 0 {} 0 UNKNOWN {} {} [{}:{}:{}:{}]",
+                    $crate::tool::current_ts(),
+                    $level,
+                    std::format_args!($($log)+),
+                    std::module_path!(),
+                    std::file!(),
+                    std::line!(),
+                    std::column!(),
+                ))
+            }
+        }
     };
 }
 
@@ -157,21 +233,36 @@ macro_rules! debug {
 #[macro_export]
 macro_rules! click_log {
     ($ts: tt, $cost: tt, $method: tt, $url: tt, $host: tt, $return_code: tt, $return_length: tt) => {
-        let (vid, tid, nid, server_name) = $crate::log::LOG_CONTEXT.try_with(|v| *v).map_or_else(|_| (0, 0, 0, "UNKNOWN"), |ctx| (ctx.vid, ctx.tid, ctx.nid, ctx.server_name));
-        $crate::log::send_log(format!(
-            "1 {} {} {} {} {} {} {} {} {} {} {}",
-            vid,
-            $ts,
-            tid,
-            nid,
-            server_name,
-            $cost,
-            $method,
-            $url,
-            $host,
-            $return_code,
-            $return_length
-        ))
+        match $crate::log::LOG_CONTEXT.try_with(|v| v.clone()) {
+            Ok(v) => {
+                $crate::log::send_log(format!(
+                    "1 {} {} {} {} {} {} {} {} {} {} {}",
+                    v.vid,
+                    $ts,
+                    v.tid,
+                    v.nid,
+                    &v.server_name,
+                    $cost,
+                    $method,
+                    $url,
+                    $host,
+                    $return_code,
+                    $return_length
+                ))
+            },
+            Err(_) => {
+                $crate::log::send_log(format!(
+                    "1 0 {} 0 0 UNKNOWN {} {} {} {} {} {}",
+                    $ts,
+                    $cost,
+                    $method,
+                    $url,
+                    $host,
+                    $return_code,
+                    $return_length
+                ))
+            }
+        }
     };
 }
 

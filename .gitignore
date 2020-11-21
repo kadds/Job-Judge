@@ -31,3 +31,4 @@ yarn-error.log*
 **/src/interface/*.rs
 !**/src/interface/mod.rs
 data.db
+*.log
