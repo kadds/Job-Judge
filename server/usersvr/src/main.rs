@@ -3,11 +3,19 @@ mod svr;
 extern crate micro_service;
 extern crate tokio_postgres;
 use std::env::var;
-use std::time::Duration;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use tonic::transport::Server;
 use micro_service::service::MicroService;
 use micro_service::cfg;
+use tonic::transport::Server;
+use tokio;
+use tokio::sync::watch;
+
+async fn wait_stop_signal(mut signal: watch::Receiver<u64>) -> () {
+    debug!("start");
+    signal.recv().await;
+    debug!("stop");
+    ()
+}
 
 #[tokio::main(core_threads = 4, max_threads = 10)]
 async fn main() {
@@ -29,29 +37,28 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     let port = listener.local_addr().unwrap().port();
+
     let server_name = var("SERVER_NAME").unwrap();
     let host = var("HOST_IP").unwrap();
-    info!("init service info: module {} server {} bind at {}:{}", module, server_name, host, port);
+
+    early_log_info!(server_name, "init service info: module {} server {} bind at {}:{}", module, server_name, host, port);
+
     let ms = MicroService::init(
         config.etcd,
         module.to_string(),
-        server_name,
-        format!(
-            "{}:{}",
-            host,
-            port,
-        ),
-        Duration::from_secs(60 * 2),
+        server_name.to_string(),
+        format!("{}:{}", host, port).parse().unwrap(),
         3,
     )
     .await
     .unwrap();
 
+    let mut stop_rx = ms.get_stop_signal();
+    let service = svr::get(&config.database.url, ms).await;
     if let Err(err) = Server::builder()
-        .add_service(svr::get(ms).await)
-        .serve_with_incoming(listener)
-        .await
+        .add_service(service)
+        .serve_with_incoming_shutdown(listener, wait_stop_signal(stop_rx)).await
     {
-        error!("startup server failed, err {}", err);
+        early_log_error!(server_name, "startup server failed, err {}", err);
     }
 }

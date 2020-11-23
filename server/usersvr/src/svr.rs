@@ -1,4 +1,3 @@
-use dotenv::dotenv;
 use micro_service::{log, service::MicroService};
 use std::env;
 use std::sync::Arc;
@@ -131,16 +130,15 @@ CREATE TABLE user_tbl (
     salt VARCHAR NOT NULL,
     nickname VARCHAR NOT NULL,
     email VARCHAR,
+    phone VARCHAR,
     avatar VARCHAR
 )
 "
 */
 
-async fn prepare_all() -> Result<(Client, Vec<Statement>), Error> {
-    dotenv().ok();
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+async fn prepare_all(database_url: &str) -> Result<(Client, Vec<Statement>), Error> {
     let (client, connection) =
-        tokio_postgres::connect(&database_url, tokio_postgres::NoTls).await?;
+        tokio_postgres::connect(database_url, tokio_postgres::NoTls).await?;
 
     connection.await?;
 
@@ -150,6 +148,7 @@ async fn prepare_all() -> Result<(Client, Vec<Statement>), Error> {
         (username, password, salt, nickname) VALUES 
         ($1, $2, $3, $4)
         RETURNING id",
+
         "SELECT password from user_tbl where username=$1",
     ];
     let arr = all_sql.iter().map(|&v| client.prepare(v));
@@ -161,8 +160,8 @@ async fn prepare_all() -> Result<(Client, Vec<Statement>), Error> {
     Ok((client, s))
 }
 
-pub async fn get(micro_service: Arc<MicroService>) -> UserSvrServer<UserSvrImpl> {
-    let (client, s) = match prepare_all().await {
+pub async fn get(database_url: &str, micro_service: Arc<MicroService>) -> UserSvrServer<UserSvrImpl> {
+    let (client, s) = match prepare_all(database_url).await {
         Ok(v) => v,
         Err(err) => {
             error!("prepare/connect database err {}", err);

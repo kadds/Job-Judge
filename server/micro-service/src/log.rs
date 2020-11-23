@@ -127,8 +127,8 @@ macro_rules! early_log {
         $crate::log::send_log(format!(
             "0 0 {} 0 {} {} {} [{}:{}:{}:{}]",
             $crate::tool::current_ts(),
-            $level,
             $server,
+            $level,
             std::format_args!($($log)+),
             std::module_path!(),
             std::file!(),

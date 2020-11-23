@@ -29,6 +29,7 @@ pub struct MicroService {
     lease_id: u64,
     // channel for stop signal
     stop_signal: watch::Sender<u64>,
+    stop_rx: watch::Receiver<u64>,
     map: RwLock<LoadBalancerHashMap>,
 }
 
@@ -42,7 +43,7 @@ impl MicroService{
     )-> Result<Arc<MicroService>> {
         super::error::panic_hook();
         assert!(etcd_config.ttl >= 30);
-        early_log!("debug", name, "connecting micro-service center address {:?} at prefix {}", etcd_config.endpoints, etcd_config.prefix);
+        early_log_debug!(name, "connecting micro-service center address {:?} at prefix {}", etcd_config.endpoints, etcd_config.prefix);
         let ttl = Duration::from_secs(etcd_config.ttl.into());
         for i in 0..retry_times {
             let client = Client::connect(ClientConfig {
@@ -68,7 +69,8 @@ impl MicroService{
                             return Err(Error::ResourceLimit);
                         }
                     };
-                    let (stop_signal, stop_signal_rx) = watch::channel(1);
+                    let (stop_signal, mut stop_signal_rx) = watch::channel(1);
+                    stop_signal_rx.recv().await;
 
                     // make struct
                     let res = Arc::new(MicroService {
@@ -76,6 +78,7 @@ impl MicroService{
                         etcd_config,
                         name: Arc::new(name),
                         module,
+                        stop_rx: stop_signal_rx.clone(),
                         lease_id,
                         map: RwLock::<LoadBalancerHashMap>::new(LoadBalancerHashMap::new()),
                         stop_signal,
@@ -116,10 +119,8 @@ impl MicroService{
         Err(Error::ConnectionFailed)
     }
 
-    async fn ttl_main(self: Arc<Self>, ttl: Duration, stop_rx: watch::Receiver<u64>) {
-        let mut stop_rx = stop_rx;
+    async fn ttl_main(self: Arc<Self>, ttl: Duration, mut stop_rx: watch::Receiver<u64>) {
         let ttl = ttl - Duration::from_secs(10);
-        let _ = stop_rx.recv().await;
         loop {
             let res = self
                 .etcd
@@ -144,7 +145,7 @@ impl MicroService{
         let _ = self.etcd.kv().delete(DeleteRequest::new(
             KeyRange::prefix(format!("{}/{}/{}", self.etcd_config.prefix, self.module, self.name)))
         ).await;
-        info!("ttl main is stopped. lease removed");
+        debug!("ttl main is stopped. lease removed");
     }
 
     pub async fn listen_module(
@@ -166,8 +167,17 @@ impl MicroService{
         let mut inbound = wc
             .watch(KeyRange::prefix(self.etcd_config.prefix.clone() + &module))
             .await;
+        let mut stop_rx = self.stop_rx.clone();
 
-        while let Some(r) = inbound.next().await {
+        loop {
+            let r = tokio::select! {
+                Some(r) = inbound.next() => {
+                    r
+                }
+                Some(_) = stop_rx.recv() => {
+                    break;
+                }
+            };
             let mut vec = match r {
                 Ok(v) => v,
                 Err(err) => {
@@ -216,6 +226,7 @@ impl MicroService{
             }
         }
 
+        debug!("watch ({}) main is stopped", module);
         Ok(())
     }
 
@@ -232,31 +243,32 @@ impl MicroService{
     }
 
     pub fn stop(&self) {
-        debug!("stop signal is sent");
+        debug!("sending stop signal");
         let _ = self.stop_signal.broadcast(0);
     }
 
-    async fn watch_signal_stop_main(self: Arc<Self>, stop_rx: watch::Receiver<u64>) {
-        let mut stop_rx = stop_rx;
+    async fn watch_signal_stop_main(self: Arc<Self>, mut stop_rx: watch::Receiver<u64>) {
         let mut sigint = signal(SignalKind::interrupt()).unwrap();
         let mut sigquit = signal(SignalKind::quit()).unwrap();
         let mut sigter = signal(SignalKind::terminate()).unwrap();
-        let _ = stop_rx.recv().await;
-        tokio::select! {
-            _ = sigint.recv() => {},
-            _= sigquit.recv() => {},
-            _= sigter.recv() => {},
+        let signal_type = tokio::select! {
+            _ = sigint.recv() => {"SIGINT"},
+            _= sigquit.recv() => {"SIGQUIT"},
+            _= sigter.recv() => {"SIGTER"},
             Some(_) = stop_rx.recv() => {
+                "SIG_UNKNOWN"
             },
         };
-        info!("recv stop signal");
+        info!("signal {} received. Stopping server", signal_type);
         let _ = self.stop_signal.broadcast(0);
-        // TODO: async callback
     }
     pub fn get_server_name(&self) -> Arc<String> {
         self.name.clone()
     }
 
+    pub fn get_stop_signal(&self) -> watch::Receiver<u64> {
+        self.stop_rx.clone()
+    }
 }
 
 #[macro_export]

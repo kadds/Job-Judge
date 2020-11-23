@@ -21,8 +21,15 @@ pub struct Comm {
     pub log_type: LogType,
 }
 
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Database {
+    pub url: String,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct MicroServiceCommConfig {
     pub comm: Comm,
     pub etcd: EtcdConfig,
+    pub database: Database,
 }

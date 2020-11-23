@@ -41,7 +41,7 @@ async fn main() -> std::io::Result<()> {
     let ms = MicroService::init(
         config.etcd,
         module.to_string(),
-        server_name,
+        server_name.clone(),
         format!("{}:{}", host, port).parse().unwrap(),
         3,
     )
@@ -51,8 +51,9 @@ async fn main() -> std::io::Result<()> {
         MS = Some(ms.clone());
     }
     register_module_with_random!(ms.clone(), "usersvr");
+    let mut stop_rx = ms.get_stop_signal();
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         App::new()
             .wrap(middleware::logger::Logger::new(ms.clone()))
             .service(
@@ -75,7 +76,22 @@ async fn main() -> std::io::Result<()> {
             .service(web::scope("/problem").service(api::problem::problem))
             .service(web::scope("/run").service(api::run::run_source))
     })
-    .bind(format!("0.0.0.0:{}", port))?
-    .run()
-    .await
+    .bind(format!("0.0.0.0:{}", port)).unwrap()
+    .disable_signals();
+
+    let running_server = server.run();
+
+    let ret = 
+    tokio::select! {
+        ret = running_server => {
+            ret
+        }
+        Some(_) = stop_rx.recv() => {
+            tokio::time::delay_for(std::time::Duration::from_millis(800)).await;
+            actix_rt::System::current().stop();
+            Ok(())
+        }
+    };
+    early_log_info!(server_name, "main cgi loop is stopped");
+    ret
 }

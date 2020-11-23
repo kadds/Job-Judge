@@ -4,16 +4,16 @@ use std::task::{Context, Poll};
 use actix_web::{dev::ServiceRequest, dev::ServiceResponse, Error, dev::Service, dev::Transform, dev::ResponseBody, dev::Body, dev::BodySize};
 use futures::future::{ok, Ready};
 use futures::Future;
-use micro_service::{log, tool};
+use micro_service::{log, tool, service::MicroService};
 use std::sync::Arc;
 
 pub struct Logger {
-    ms: Arc<micro_service::service::MicroService>
+    micro_service: Arc<MicroService>,
 }
 
 impl Logger {
-    pub fn new(ms: Arc<micro_service::service::MicroService>) -> Logger {
-        Logger { ms }
+    pub fn new(micro_service: Arc<MicroService>) -> Logger {
+        Logger { micro_service }
     }
 }
 
@@ -31,13 +31,13 @@ where
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ok(LoggerMiddleware { service, ms: self.ms.clone()})
+        ok(LoggerMiddleware { service, micro_service: self.micro_service.clone()})
     }
 }
 
 pub struct LoggerMiddleware<S> {
     service: S,
-    ms: Arc<micro_service::service::MicroService>,
+    micro_service: Arc<MicroService>,
 }
 
 impl<S, B> Service for LoggerMiddleware<S>
@@ -62,7 +62,7 @@ where
         let tid = tool::gen_tid();
         
         let fut = self.service.call(req);
-        let server_name = self.ms.get_server_name().clone();
+        let server_name = self.micro_service.get_server_name().clone();
 
         Box::pin(log::make_context(vid, tid, nid, 0, server_name, async move {
             let res = fut.await?;

@@ -7,7 +7,6 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dotenv = "0.15.0"
 futures = "0.3"
 lazy_static = "1.4"
 micro-service = {path = "../micro-service"}
