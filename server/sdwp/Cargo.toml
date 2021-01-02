@@ -8,3 +8,18 @@ description = "server debug web page"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+actix-rt = "1"
+actix-web = "3"
+micro-service = {path = "../micro-service"}
+serde = {version = "1.0", features = ["derive"]}
+serde_json = "1.0"
+tokio = {version = "0.2", features = ["full"]}
+tonic = "0.3"
+log = "0.4"
+env_logger = "0.8"
+futures = "0.3"
+rand = "0"
+lazy_static = "1"
+
+[build-dependencies]
+tonic-build = "0.3"

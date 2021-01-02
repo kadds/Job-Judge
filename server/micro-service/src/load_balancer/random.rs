@@ -53,9 +53,9 @@ impl LoadBalancer for RandomLoadBalancer {
         }
     }
 
-    async fn on_rpc_update(&mut self, s: Vec<(String, ServerInfo)>) {}
+    async fn on_rpc_update(&mut self, _s: Vec<(String, ServerInfo)>) {}
 
-    async fn get_server(&self, uin: u64, flags: u64) -> Option<Channel> {
+    async fn get_server(&self, _uin: u64, _flags: u64) -> Option<Channel> {
         let vec = &self.servers;
         match vec.len() {
             0 => None,

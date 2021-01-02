@@ -1,0 +1,21 @@
+@hostname = localhost
+@port = 6550
+@host = {{hostname}}:{{port}}
+@contentType = Content-Type: application/json
+
+@base = http://{{host}}/
+
+###
+POST {{base}}user/login HTTP/1.1
+{{contentType}}
+
+{"username": "admin",
+"password": "12345678"}
+
+###
+
+GET {{base}}service/list HTTP/1.1
+Token: 
+{{contentType}}
+
+{}
