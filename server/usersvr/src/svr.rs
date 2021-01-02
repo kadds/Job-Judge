@@ -1,11 +1,12 @@
 use micro_service::{log, service::MicroService};
-use std::env;
+use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::timeout;
-use tokio_postgres::{Client, Connection, Error, Row, Statement};
+use sqlx::postgres::{PgPoolOptions, PgPool};
+use sqlx::Row;
 use tonic::{Request, Response, Status};
 
+type SqlRow = sqlx::postgres::PgRow;
 pub mod user {
     pub mod rpc {
         tonic::include_proto!("user.rpc");
@@ -15,11 +16,9 @@ pub mod user {
 
 use user::rpc::user_svr_server::{UserSvr, UserSvrServer};
 use user::rpc::*;
-use user::*;
 
 pub struct UserSvrImpl {
-    client: Client,
-    statements: Vec<Statement>,
+    pool: PgPool,
     micro_service: Arc<MicroService>,
 }
 
@@ -30,24 +29,18 @@ impl UserSvr for UserSvrImpl {
         request: Request<CreateUserReq>,
     ) -> Result<Response<CreateUserRsp>, Status> {
         let req = request.into_inner();
-        let userinfo = match req.userinfo {
-            Some(v) => v,
-            None => {
-                return Err(Status::invalid_argument("get user info empty"));
-            }
-        };
+        let salt = "123";
+        let pwd = req.password;
 
-        let id: i32 = match self
-            .client
-            .query_one(
-                &self.statements[0],
-                &[
-                    &userinfo.username,
-                    &userinfo.password,
-                    &userinfo.salt,
-                    &userinfo.nickname,
-                ],
-            )
+        let id: i32 = match sqlx::query("INSERT INTO user_tbl 
+        (username, password, salt, nickname) VALUES 
+        ($1, $2, $3, $4)
+        RETURNING id")
+            .bind(&req.username)
+            .bind(&pwd)
+            .bind(&salt)
+            .bind(&req.username)
+            .fetch_one(&self.pool)
             .await
         {
             Ok(v) => v.get(0),
@@ -64,12 +57,12 @@ impl UserSvr for UserSvrImpl {
         &self,
         request: Request<ValidUserReq>,
     ) -> Result<Response<ValidUserRsp>, Status> {
+
         let req = request.into_inner();
-        let mut ok = false;
-        let mut exist = false;
-        let res: Option<Row> = match self
-            .client
-            .query_opt(&self.statements[1], &[&req.username])
+        let res: Option<SqlRow> = match sqlx::query(
+            "SELECT password, salt from user_tbl where username=$1")
+            .bind(&req.username)
+            .fetch_optional(&self.pool)
             .await
         {
             Ok(v) => v,
@@ -79,23 +72,20 @@ impl UserSvr for UserSvrImpl {
             }
         };
 
-        if let Some(res) = res {
-            exist = true;
+        return if let Some(res) = res {
             let pwd: String = res.get(0);
             if pwd != req.password {
-                ok = false;
+                Ok(Response::new(ValidUserRsp {
+                    correct: false
+                }))
             } else {
-                ok = true;
+                Ok(Response::new(ValidUserRsp {
+                    correct: true
+                }))
             }
         } else {
-            ok = false;
-            exist = false;
+            Err(Status::not_found("user/email not found"))
         }
-
-        Ok(Response::new(ValidUserRsp {
-            ok,
-            is_exist: exist,
-        }))
     }
 
     async fn get_user(
@@ -113,13 +103,6 @@ impl UserSvr for UserSvrImpl {
 
         //Ok(Response::new(UpdateUserResult {}))
     }
-    async fn has_user(
-        &self,
-        request: Request<HasUserReq>,
-    ) -> Result<Response<HasUserRsp>, Status> {
-        Err(Status::unavailable(""))
-        //Ok(Response::new(HasUserResult {}))
-    }
 }
 /*
 "
@@ -136,42 +119,22 @@ CREATE TABLE user_tbl (
 "
 */
 
-async fn prepare_all(database_url: &str) -> Result<(Client, Vec<Statement>), Error> {
-    let (client, connection) =
-        tokio_postgres::connect(database_url, tokio_postgres::NoTls).await?;
-
-    connection.await?;
-
-    let mut s: Vec<Statement> = vec![];
-    let all_sql = [
-        "INSERT INTO user_tbl 
-        (username, password, salt, nickname) VALUES 
-        ($1, $2, $3, $4)
-        RETURNING id",
-
-        "SELECT password from user_tbl where username=$1",
-    ];
-    let arr = all_sql.iter().map(|&v| client.prepare(v));
-
-    for it in futures::future::try_join_all(arr).await? {
-        s.push(it);
-    }
-
-    Ok((client, s))
-}
-
 pub async fn get(database_url: &str, micro_service: Arc<MicroService>) -> UserSvrServer<UserSvrImpl> {
-    let (client, s) = match prepare_all(database_url).await {
-        Ok(v) => v,
-        Err(err) => {
-            error!("prepare/connect database err {}", err);
-            std::process::exit(-1);
-        }
-    };
+    let connections: u32 = 10;
+    let pool = match PgPoolOptions::new()
+        .max_connections(connections)
+        .connect_timeout(Duration::from_secs(5))
+        .connect(database_url)
+        .await {
+            Ok(v) => v,
+            Err(err) => {
+                error!("prepare/connect database err {}", err);
+                std::process::exit(-1);
+            }
+        };
 
     return UserSvrServer::new(UserSvrImpl {
-        client: client,
-        statements: s,
+        pool: pool,
         micro_service,
     });
 }

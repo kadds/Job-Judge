@@ -1,21 +1,23 @@
 syntax = "proto3";
-import "user.proto";
-import "rpc_comm.proto";
+import "proto/user.proto";
+import "proto/rpc_comm.proto";
 package user.rpc;
 
-message CreateUserReq { user.UserInfo userinfo = 1; }
+message CreateUserReq { 
+  string username = 1;
+  string password = 2;
+}
 
 message CreateUserRsp { uint64 uid = 1; }
 
 message ValidUserReq {
   string username = 1;
-  // string email = 2;
+  string email = 2;
   string password = 3;
 }
 
 message ValidUserRsp {
-  bool ok = 1;
-  bool is_exist = 2;
+  bool correct = 1;
 }
 
 message GetUserReq { uint64 uid = 1; }
@@ -26,13 +28,6 @@ message UpdateUserReq { user.UserInfo userinfo = 1; }
 
 message UpdateUserRsp { bool ok = 1; }
 
-message HasUserReq {
-  string username = 1;
-  string email = 2;
-}
-
-message HasUserRsp { bool has = 1; }
-
 service UserSvr {
   rpc create_user(CreateUserReq) returns (CreateUserRsp);
 
@@ -41,6 +36,4 @@ service UserSvr {
   rpc get_user(GetUserReq) returns (GetUserRsp);
 
   rpc update_user(UpdateUserReq) returns (UpdateUserRsp);
-
-  rpc has_user(HasUserReq) returns (HasUserRsp);
 }

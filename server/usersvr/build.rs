@@ -1,6 +1,7 @@
 fn main() {
 	tonic_build::configure()
 		.build_server(true)
-		.compile(&["proto/rpc.proto"], &["proto/", "../proto"])
+		.type_attribute(".table", "#[derive(::sqlx::FromRow)]")
+		.compile(&["proto/rpc.proto", "proto/table.proto"], &["proto/", "../"])
 		.unwrap();
 }

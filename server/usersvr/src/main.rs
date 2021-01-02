@@ -1,7 +1,5 @@
-mod svr;
 #[macro_use]
 extern crate micro_service;
-extern crate tokio_postgres;
 use std::env::var;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use micro_service::service::MicroService;
@@ -10,10 +8,11 @@ use tonic::transport::Server;
 use tokio;
 use tokio::sync::watch;
 
+mod table;
+mod svr;
+
 async fn wait_stop_signal(mut signal: watch::Receiver<u64>) -> () {
-    debug!("start");
     signal.recv().await;
-    debug!("stop");
     ()
 }
 
@@ -53,7 +52,7 @@ async fn main() {
     .await
     .unwrap();
 
-    let mut stop_rx = ms.get_stop_signal();
+    let stop_rx = ms.get_stop_signal();
     let service = svr::get(&config.database.url, ms).await;
     if let Err(err) = Server::builder()
         .add_service(service)

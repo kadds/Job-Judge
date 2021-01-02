@@ -14,9 +14,9 @@ prost = "0.6"
 serde = {version = "1.0", features = ["derive"]}
 serde_json = "1.0"
 tokio = {version = "0.2", features = ["full"]}
-tokio-postgres = "0.5"
 toml = "0.5"
 tonic = "0.3"
+sqlx = { version = "0.4", features = [ "runtime-tokio-rustls", "postgres" ] }
 
 [build-dependencies]
 tonic-build = "0.3"

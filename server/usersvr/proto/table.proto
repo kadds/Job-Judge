@@ -1,0 +1,25 @@
+syntax = "proto3";
+package table;
+
+message User {
+    uint64 vid = 1;
+    string username = 2;
+    string password = 3;
+    string salt = 4;
+    string nickname = 5;
+    string email = 6;
+    string phone = 7;
+    string avatar = 8;
+}
+/*
+CREATE TABLE user_tbl (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR NOT NULL,
+    password VARCHAR NOT NULL,
+    salt VARCHAR NOT NULL,
+    nickname VARCHAR NOT NULL,
+    email VARCHAR,
+    phone VARCHAR,
+    avatar VARCHAR
+)
+*/

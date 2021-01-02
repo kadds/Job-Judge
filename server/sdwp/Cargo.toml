@@ -1,0 +1,10 @@
+[package]
+name = "sdwp"
+version = "0.1.0"
+authors = ["kadds <itmyxyf@gmail.com>"]
+edition = "2018"
+description = "server debug web page"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]

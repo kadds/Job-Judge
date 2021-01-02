@@ -9,12 +9,8 @@ enum UserType {
 
 message UserInfo {
   uint64 uid = 1;
-  UserType type = 2;
-  string username = 3;
-  string nickname = 4;
-  string avatar = 5;
-  string email = 6;
-  string salt = 7;
-  string password = 8;
-  string mark = 20;
+  string username = 2;
+  string nickname = 3;
+  string avatar = 4;
+  string email = 5;
 }
