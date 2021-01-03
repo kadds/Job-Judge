@@ -5,7 +5,8 @@ use actix_web::{dev::ServiceRequest, dev::ServiceResponse, Error, dev::Service, 
   error};
 use futures::future::{ok, Ready};
 use futures::Future;
-use super::super::token;
+use super::super::{AppData, token};
+use std::sync::Arc;
 
 pub struct Auth {
 }
@@ -55,7 +56,8 @@ where
 
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
         let uri = req.uri();
-        let need_token = uri != "/user/login";
+        let data= &req.app_data::<Arc<AppData>>().unwrap();
+        let need_token = uri != "/user/login" && !data.config.user.no_verify;
         let token = req.headers().get("TOKEN").map(
             |v| v.to_str().unwrap_or("").to_owned());
 

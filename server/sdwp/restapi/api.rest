@@ -19,3 +19,11 @@ Token:
 {{contentType}}
 
 {}
+
+### 
+GET {{base}}service/rpcs HTTP/1.1
+Token: 
+{{contentType}}
+
+{"module_name": "",
+"server_name": ""}
