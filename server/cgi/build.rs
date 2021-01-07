@@ -5,7 +5,7 @@ fn main() {
         .type_attribute(".", "#[derive(Serialize, Deserialize)]")
         .compile(
             &["../proto/runner.proto", "../proto/user.proto", "../usersvr/proto/rpc.proto"],
-            &["../proto", "../usersvr/proto"],
+            &["../", "../usersvr/proto"],
         )
         .unwrap();
 }

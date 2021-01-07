@@ -121,6 +121,19 @@ pub async fn make_context<T, F>(vid: u64, tid: u64, nid: u64, pnid: u64, server_
     }, future).await
 }
 
+pub async fn make_empty_context<T, F>(server_name: Arc<String>, future: F) -> T 
+    where
+        F: Future<Output = T>
+{
+    LOG_CONTEXT.scope(LogContext{
+        vid: 0,
+        tid: 0,
+        nid: 0,
+        pnid: 0,
+        server_name
+    }, future).await
+}
+
 #[macro_export]
 macro_rules! early_log {
     ($level: tt, $server: tt, $($log: tt)+)=> {

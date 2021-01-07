@@ -3,7 +3,7 @@ use super::error::{Error, Result};
 use super::load_balancer::*;
 use super::log;
 use super::ServerInfo;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use tokio::stream::StreamExt;
 use tokio::time::delay_for;
 use tonic;
@@ -52,67 +52,76 @@ impl MicroService{
                 tls: None,
             })
             .await;
-            match client {
-                Ok(client) => {
-                    // new lease id for path
-                    let lease_id = match client.lease().grant(LeaseGrantRequest::new(ttl)).await {
-                        Ok(v) => {
-                            if v.id() == 0 {
-                                early_log_error!(name, "request lease fail, lease id returns 0");
-                                return Err(Error::ResourceLimit);
-                            }
-                            early_log_info!(name, "request lease id is {}", v.id());
-                            v.id()
-                        }
-                        Err(e) => {
-                            early_log_error!(name, "request lease fail result {:?}", e);
-                            return Err(Error::ResourceLimit);
-                        }
-                    };
-                    let (stop_signal, mut stop_signal_rx) = watch::channel(1);
-                    stop_signal_rx.recv().await;
-
-                    // make struct
-                    let res = Arc::new(MicroService {
-                        etcd: client,
-                        etcd_config,
-                        name: Arc::new(name),
-                        module,
-                        stop_rx: stop_signal_rx.clone(),
-                        lease_id,
-                        map: RwLock::<LoadBalancerHashMap>::new(LoadBalancerHashMap::new()),
-                        stop_signal,
-                    });
-
-                    // write server config
-                    let mut req = PutRequest::new(
-                        format!(
-                            "{}/{}/{}/info",
-                            res.etcd_config.prefix, res.module, res.name
-                        ),
-                        ServerInfo {
-                            address: address,
-                        }
-                        .to_json(),
-                    );
-                    // put server address to etcd
-                    req.set_lease(res.lease_id);
-                    match res.etcd.kv().put(req).await {
-                        Ok(v) => v,
-                        Err(e) => {
-                            let name = res.name.clone();
-                            early_log_error!(name, "write server info (etcd) fail result {:?}", e);
-                            return Err(Error::Unknown);
-                        }
-                    };
-                    tokio::spawn(log::make_context(0, 0, 0, 0, res.name.clone(), res.clone().ttl_main(ttl, stop_signal_rx.clone())));
-                    tokio::spawn(log::make_context(0, 0, 0, 0, res.name.clone(), res.clone().watch_signal_stop_main(stop_signal_rx.clone())));
-                    return Ok(res);
-                }
+            let client = match client {
+                Ok(client) => client,
                 Err(e) => {
                     early_log_warn!(name, "etcd connect fail result {:?} times {}", e, i);
+                    continue;
                 }
-            }
+            };
+
+            // new lease id for path
+            let lease_id = match client.lease().grant(LeaseGrantRequest::new(ttl)).await {
+                Ok(v) => {
+                    if v.id() == 0 {
+                        early_log_error!(name, "request lease fail, lease id returns 0");
+                        return Err(Error::ResourceLimit);
+                    }
+                    early_log_info!(name, "request lease id is {}", v.id());
+                    v.id()
+                }
+                Err(e) => {
+                    early_log_error!(name, "request lease fail result {:?}", e);
+                    return Err(Error::ResourceLimit);
+                }
+            };
+
+            let (stop_signal, mut stop_signal_rx) = watch::channel(1);
+            stop_signal_rx.recv().await;
+
+            // make struct
+            let res = Arc::new(MicroService {
+                etcd: client,
+                etcd_config,
+                name: Arc::new(name),
+                module,
+                stop_rx: stop_signal_rx.clone(),
+                lease_id,
+                map: RwLock::<LoadBalancerHashMap>::new(LoadBalancerHashMap::new()),
+                stop_signal,
+            });
+
+            let ctime = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |v| v.as_millis() as i64);
+            // init etcd
+            // write server config
+            let mut req = PutRequest::new(
+                format!(
+                    "{}/{}/{}/info",
+                    res.etcd_config.prefix, res.module, res.name
+                ),
+                ServerInfo {
+                    address: address,
+                    enabled: true,
+                    ctime: ctime,
+                    mtime: ctime
+                }
+                .to_json(),
+            );
+            // put server address to etcd
+            req.set_lease(res.lease_id);
+            match res.etcd.kv().put(req).await {
+                Ok(v) => v,
+                Err(e) => {
+                    let _ = res.etcd.lease().shutdown().await;
+                    let name = res.name.clone();
+                    early_log_error!(name, "write server info (etcd) fail result {:?}", e);
+                    return Err(Error::Unknown);
+                }
+            };
+
+            tokio::spawn(log::make_empty_context(res.name.clone(), res.clone().ttl_main(ttl, stop_signal_rx.clone())));
+            tokio::spawn(log::make_empty_context(res.name.clone(), res.clone().watch_signal_stop_main(stop_signal_rx.clone())));
+            return Ok(res);
         }
 
         early_log_error!(name, "etcd connect failed. try {} times", retry_times);

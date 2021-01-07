@@ -13,6 +13,9 @@ use serde::{Deserialize, Serialize};
 pub struct ServerInfo {
     // ip port string
     pub address: String,
+    pub enabled: bool,
+    pub ctime: i64,
+    pub mtime: i64,
 }
 
 impl ServerInfo {
