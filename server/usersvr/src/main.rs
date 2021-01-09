@@ -4,7 +4,7 @@ extern crate sha2;
 extern crate hex;
 use std::env::var;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use micro_service::service::MicroService;
+use micro_service::service::{MicroService, ServiceLevel};
 use micro_service::cfg;
 use tonic::transport::Server;
 use tokio;
@@ -41,6 +41,11 @@ async fn main() {
 
     let server_name = var("SERVER_NAME").unwrap();
     let host = var("HOST_IP").unwrap();
+    let flag: String = var("ENV_FLAG").unwrap_or_default();
+    let service_level = match flag.as_str() {
+        "1" => ServiceLevel::Test,
+        _ => ServiceLevel::Prod,
+    };
 
     early_log_info!(server_name, "init service info: module {} server {} bind at {}:{}", module, server_name, host, port);
 
@@ -50,11 +55,12 @@ async fn main() {
         server_name.to_string(),
         format!("{}:{}", host, port).parse().unwrap(),
         3,
+        service_level
     )
     .await
     .unwrap();
 
-    let stop_rx = ms.get_stop_signal();
+    let stop_rx = ms.service_signal();
     let service = svr::get(&config.database.url, ms).await;
     if let Err(err) = Server::builder()
         .add_service(service)

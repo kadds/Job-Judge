@@ -10,7 +10,7 @@ use crate::MS;
 pub async fn login() -> impl Responder {
     let uin: u64 = 0;
     let client = unsafe {
-        UserSvrClient::new(match MS.clone().unwrap().get_channel("usersvr", uin, 0).await {
+        UserSvrClient::new(match MS.clone().unwrap().channel("usersvr", uin, 0).await {
             Some(v) => v,
             None => {
                 return HttpResponse::Ok();

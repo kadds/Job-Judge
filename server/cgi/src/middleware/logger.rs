@@ -4,7 +4,7 @@ use std::task::{Context, Poll};
 use actix_web::{dev::ServiceRequest, dev::ServiceResponse, Error, dev::Service, dev::Transform, dev::ResponseBody, dev::Body, dev::BodySize};
 use futures::future::{ok, Ready};
 use futures::Future;
-use micro_service::{log, tool, service::MicroService};
+use micro_service::{log, util, service::MicroService};
 use std::sync::Arc;
 
 pub struct Logger {
@@ -56,13 +56,13 @@ where
     }
 
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
-        let ts = tool::current_ts();
+        let ts = util::current_ts();
         let vid = 0;
-        let nid = tool::gen_nid();
-        let tid = tool::gen_tid();
+        let nid = util::gen_nid();
+        let tid = util::gen_tid();
         
         let fut = self.service.call(req);
-        let server_name = self.micro_service.get_server_name().clone();
+        let server_name = self.micro_service.service_name().clone();
 
         Box::pin(log::make_context(vid, tid, nid, 0, server_name, async move {
             let res = fut.await?;
@@ -71,7 +71,7 @@ where
             let uri = req.uri();
             // let path = req.path();
             let host = req.peer_addr().map_or_else(|| "0.0.0.0:0".to_string(), |v| v.to_string());
-            let cost = tool::current_ts() - ts;
+            let cost = util::current_ts() - ts;
             let status = res.status().as_u16();
             let len = match res.response().body() {
                 ResponseBody::Body(b) => 0,

@@ -4,7 +4,7 @@ pub mod cfg;
 pub mod error;
 pub mod load_balancer;
 pub mod service;
-pub mod tool;
+pub mod util;
 pub use log::{init_console_logger, init_tcp_logger};
 use serde::{Deserialize, Serialize};
 

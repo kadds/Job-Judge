@@ -9,7 +9,7 @@ mod rpc;
 mod api;
 mod middleware;
 use actix_web::{web, App, HttpServer};
-use micro_service::service::MicroService;
+use micro_service::service::{MicroService, ServiceLevel};
 use micro_service::cfg;
 use std::env::var;
 use std::sync::Arc;
@@ -36,6 +36,11 @@ async fn main() -> std::io::Result<()> {
 
     let server_name = var("SERVER_NAME").unwrap();
     let host = var("HOST_IP").unwrap();
+    let flag: String = var("ENV_FLAG").unwrap_or_default();
+    let service_level = match flag.as_str() {
+        "1" => ServiceLevel::Test,
+        _ => ServiceLevel::Prod,
+    };
 
     early_log_info!(server_name, "init service info: module {} server {} bind at {}:{}", module, server_name, host, port);
     let ms = MicroService::init(
@@ -44,14 +49,16 @@ async fn main() -> std::io::Result<()> {
         server_name.clone(),
         format!("{}:{}", host, port).parse().unwrap(),
         3,
+        service_level
     )
     .await
     .unwrap();
+
     unsafe {
         MS = Some(ms.clone());
     }
     register_module_with_random!(ms.clone(), "usersvr");
-    let mut stop_rx = ms.get_stop_signal();
+    let mut stop_rx = ms.service_signal();
 
     let server = HttpServer::new(move || {
         App::new()

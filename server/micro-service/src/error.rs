@@ -1,14 +1,18 @@
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("connect etcd error")]
     ConnectionFailed,
-    Timeout,
-    CheckFailed,
+    #[error("resource limit error")]
     ResourceLimit,
+    #[error("op error")]
+    OperationError(#[from] etcd_rs::Error),
+    #[error("unknown error")]
     Unknown,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
-use super::log;
+
+use crate::log;
 use backtrace::Backtrace;
 
 pub fn panic_hook (){

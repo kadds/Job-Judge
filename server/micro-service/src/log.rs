@@ -139,7 +139,7 @@ macro_rules! early_log {
     ($level: tt, $server: tt, $($log: tt)+)=> {
         $crate::log::send_log(format!(
             "0 0 {} 0 {} {} {} [{}:{}:{}:{}]",
-            $crate::tool::current_ts(),
+            $crate::util::current_ts(),
             $server,
             $level,
             std::format_args!($($log)+),
@@ -188,7 +188,7 @@ macro_rules! log {
                 $crate::log::send_log(format!(
                     "0 {} {} {} {} {} {} [{}:{}:{}:{}]",
                     v.vid,
-                    $crate::tool::current_ts(),
+                    $crate::util::current_ts(),
                     v.tid,
                     &v.server_name,
                     $level,
@@ -202,7 +202,7 @@ macro_rules! log {
             Err(_) => {
                 $crate::log::send_log(format!(
                     "0 0 {} 0 UNKNOWN {} {} [{}:{}:{}:{}]",
-                    $crate::tool::current_ts(),
+                    $crate::util::current_ts(),
                     $level,
                     std::format_args!($($log)+),
                     std::module_path!(),

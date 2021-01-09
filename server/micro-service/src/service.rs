@@ -38,8 +38,82 @@ pub struct MicroService {
     stop_rx: watch::Receiver<u64>,
     map: RwLock<LoadBalancerHashMap>,
     level: ServiceLevel,
+    address: String,
 }
 
+async fn retry_connect_client(etcd_config: &EtcdConfig, retry_times: u32, name: &str) -> Result<Client> {
+    for i in 0..retry_times {
+        let client = Client::connect(ClientConfig {
+            endpoints: etcd_config.endpoints.to_owned(),
+            auth: Some((etcd_config.username.to_owned(), etcd_config.password.to_owned())),
+            tls: None,
+        })
+        .await;
+        match client {
+            Ok(client) => {
+                return Ok(client);
+            },
+            Err(e) => {
+                early_log_warn!(name, "etcd connect fail result {:?} times {}", e, i);
+                delay_for(Duration::from_secs(1)).await;
+            }
+        };
+    }
+    early_log_error!(name, "etcd connect failed. try {} times", retry_times);
+    Err(Error::ConnectionFailed)
+}
+
+async fn retry_lease_id(client: &Client, retry_times: u32, name: &str, ttl: Duration) -> Result<u64> {
+    let mut err  = None;
+    for _ in 0..retry_times {
+        // new lease id for path
+        match client.lease().grant(LeaseGrantRequest::new(ttl)).await {
+            Ok(v) => {
+                if v.id() == 0 {
+                    early_log_error!(name, "request lease fail, lease id returns 0");
+                    delay_for(Duration::from_secs(1)).await;
+                }
+                else {
+                    early_log_info!(name, "request lease id is {}", v.id());
+                    return Ok(v.id())
+                }
+            }
+            Err(e) => {
+                early_log_error!(name, "request lease fail result {:?}", e);
+                err = Some(e);
+                delay_for(Duration::from_secs(1)).await;
+            }
+        };
+    }
+    if let Some(err) = err {
+        Err(Error::OperationError(err))
+    }
+    else {
+        Err(Error::ResourceLimit)
+    }
+}
+
+async fn retry_write_with_lease(client: &Client, retry_times: u32, name: &str, lease_id: u64, key: String, data: String) 
+    -> Result<()> {
+    let mut err  = None;
+    for _ in 0..retry_times {
+        let mut req = PutRequest::new(key.clone(), data.clone()); 
+        req.set_lease(lease_id);
+        match client.kv().put(req).await {
+            Ok(_) => {
+                return Ok(());
+            },
+            Err(e) => {
+                early_log_error!(name, "write server info (etcd) fail result {:?}", e);
+                err = Some(e);
+                delay_for(Duration::from_secs(1)).await;
+            }
+        };
+    }
+    let _ = client.lease().shutdown().await;
+    early_log_error!(name, "write server info (etcd) fail");
+    Err(Error::OperationError(err.unwrap()))
+}
 
 impl MicroService{
     pub async fn init(
@@ -48,93 +122,61 @@ impl MicroService{
         name: String,
         address: String,
         retry_times: u32,
+        level: ServiceLevel,
     )-> Result<Arc<MicroService>> {
-        super::error::panic_hook();
+        crate::error::panic_hook();
         assert!(etcd_config.ttl >= 30);
         early_log_debug!(name, "connecting micro-service center address {:?} at prefix {}", etcd_config.endpoints, etcd_config.prefix);
+
+        // connect to etcd
+        let client = retry_connect_client(&etcd_config, retry_times, &name).await?;
+
+        // new lease id
         let ttl = Duration::from_secs(etcd_config.ttl.into());
-        for i in 0..retry_times {
-            let client = Client::connect(ClientConfig {
-                endpoints: etcd_config.endpoints.to_owned(),
-                auth: Some((etcd_config.username.to_owned(), etcd_config.password.to_owned())),
-                tls: None,
-            })
-            .await;
-            let client = match client {
-                Ok(client) => client,
-                Err(e) => {
-                    early_log_warn!(name, "etcd connect fail result {:?} times {}", e, i);
-                    continue;
-                }
-            };
+        let lease_id = retry_lease_id(&client, retry_times, &name, ttl).await?;
 
-            // new lease id for path
-            let lease_id = match client.lease().grant(LeaseGrantRequest::new(ttl)).await {
-                Ok(v) => {
-                    if v.id() == 0 {
-                        early_log_error!(name, "request lease fail, lease id returns 0");
-                        return Err(Error::ResourceLimit);
-                    }
-                    early_log_info!(name, "request lease id is {}", v.id());
-                    v.id()
-                }
-                Err(e) => {
-                    early_log_error!(name, "request lease fail result {:?}", e);
-                    return Err(Error::ResourceLimit);
-                }
-            };
+        // write server config
+        let ctime = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |v| v.as_millis() as i64);
+        let key = format!(
+            "{}/{}/{}/info",
+            etcd_config.prefix, module, name
+        );
+        let value = ServerInfo {
+            address: address.clone(),
+            enabled: false,
+            ctime: ctime,
+            mtime: ctime
+        }.to_json();
+        retry_write_with_lease(&client, retry_times, &name, lease_id, key.clone(), value).await?;
 
-            let (stop_signal, mut stop_signal_rx) = watch::channel(1);
-            stop_signal_rx.recv().await;
+        let value = ServerInfo {
+            address: address.clone(),
+            enabled: true,
+            ctime: ctime,
+            mtime: ctime
+        }.to_json();
+        retry_write_with_lease(&client, retry_times, &name, lease_id, key, value).await?;
 
-            // make struct
-            let res = Arc::new(MicroService {
-                etcd: client,
-                etcd_config,
-                name: Arc::new(name),
-                module,
-                stop_rx: stop_signal_rx.clone(),
-                lease_id,
-                map: RwLock::<LoadBalancerHashMap>::new(LoadBalancerHashMap::new()),
-                stop_signal,
-                level: ServiceLevel::Prod,
-            });
+        // make struct
+        let (stop_signal, mut stop_signal_rx) = watch::channel(1);
+        stop_signal_rx.recv().await;
 
-            let ctime = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |v| v.as_millis() as i64);
-            // init etcd
-            // write server config
-            let mut req = PutRequest::new(
-                format!(
-                    "{}/{}/{}/info",
-                    res.etcd_config.prefix, res.module, res.name
-                ),
-                ServerInfo {
-                    address: address,
-                    enabled: true,
-                    ctime: ctime,
-                    mtime: ctime
-                }
-                .to_json(),
-            );
-            // put server address to etcd
-            req.set_lease(res.lease_id);
-            match res.etcd.kv().put(req).await {
-                Ok(v) => v,
-                Err(e) => {
-                    let _ = res.etcd.lease().shutdown().await;
-                    let name = res.name.clone();
-                    early_log_error!(name, "write server info (etcd) fail result {:?}", e);
-                    return Err(Error::Unknown);
-                }
-            };
+        let res = Arc::new(MicroService {
+            etcd: client,
+            etcd_config,
+            name: Arc::new(name),
+            module,
+            address,
+            stop_rx: stop_signal_rx.clone(),
+            lease_id,
+            map: RwLock::<LoadBalancerHashMap>::new(LoadBalancerHashMap::new()),
+            stop_signal,
+            level,
+        });
 
-            tokio::spawn(log::make_empty_context(res.name.clone(), res.clone().ttl_main(ttl, stop_signal_rx.clone())));
-            tokio::spawn(log::make_empty_context(res.name.clone(), res.clone().watch_signal_stop_main(stop_signal_rx.clone())));
-            return Ok(res);
-        }
-
-        early_log_error!(name, "etcd connect failed. try {} times", retry_times);
-        Err(Error::ConnectionFailed)
+        tokio::spawn(log::make_empty_context(res.name.clone(), res.clone().ttl_main(ttl, stop_signal_rx.clone())));
+        tokio::spawn(log::make_empty_context(res.name.clone(), res.clone().watch_signal_main(stop_signal_rx.clone())));
+        return Ok(res);
     }
 
     async fn ttl_main(self: Arc<Self>, ttl: Duration, mut stop_rx: watch::Receiver<u64>) {
@@ -164,20 +206,6 @@ impl MicroService{
             KeyRange::prefix(format!("{}/{}/{}", self.etcd_config.prefix, self.module, self.name)))
         ).await;
         debug!("ttl main is stopped. lease removed");
-    }
-
-    pub async fn listen_module(
-        self: Arc<Self>,
-        module: String,
-        load_balancer: Box<dyn LoadBalancer>,
-    ) -> Option<()> {
-        let res = self.map
-            .write()
-            .await
-            .insert(module.to_owned(), load_balancer)
-            .map(|_| ());
-        tokio::spawn(log::make_context(0, 0, 0, 0, self.name.clone(), self.watch_main(module)));
-        res
     }
 
     async fn watch_main(self: Arc<Self>, module: String) -> Result<()> {
@@ -248,24 +276,7 @@ impl MicroService{
         Ok(())
     }
 
-    pub async fn get_channel(
-        &self,
-        module: &str,
-        uin: u64,
-        flags: u64,
-    ) -> Option<tonic::transport::Channel> {
-        if let Some(load_balancer) = self.map.read().await.get(module) {
-            return load_balancer.get_server(uin, flags).await;
-        }
-        None
-    }
-
-    pub fn stop(&self) {
-        debug!("sending stop signal");
-        let _ = self.stop_signal.broadcast(0);
-    }
-
-    async fn watch_signal_stop_main(self: Arc<Self>, mut stop_rx: watch::Receiver<u64>) {
+    async fn watch_signal_main(self: Arc<Self>, mut stop_rx: watch::Receiver<u64>) {
         let mut sigint = signal(SignalKind::interrupt()).unwrap();
         let mut sigquit = signal(SignalKind::quit()).unwrap();
         let mut sigter = signal(SignalKind::terminate()).unwrap();
@@ -280,16 +291,52 @@ impl MicroService{
         info!("signal {} received. Stopping server", signal_type);
         let _ = self.stop_signal.broadcast(0);
     }
-    pub fn get_server_name(&self) -> Arc<String> {
+
+    pub async fn channel(
+        &self,
+        module: &str,
+        uin: u64,
+        flags: u64,
+    ) -> Option<tonic::transport::Channel> {
+        if let Some(load_balancer) = self.map.read().await.get(module) {
+            return load_balancer.one_of_channel(uin, flags).await;
+        }
+        None
+    }
+
+    pub async fn listen_module(
+        self: Arc<Self>,
+        module: String,
+        load_balancer: Box<dyn LoadBalancer>,
+    ) -> Option<()> {
+        let res = self.map
+            .write()
+            .await
+            .insert(module.to_owned(), load_balancer)
+            .map(|_| ());
+        tokio::spawn(log::make_context(0, 0, 0, 0, self.name.clone(), self.watch_main(module)));
+        res
+    }
+
+    pub fn stop_self(&self) {
+        debug!("sending stop signal");
+        let _ = self.stop_signal.broadcast(0);
+    }
+
+    pub fn service_name(&self) -> Arc<String> {
         self.name.clone()
     }
 
-    pub fn get_stop_signal(&self) -> watch::Receiver<u64> {
+    pub fn service_signal(&self) -> watch::Receiver<u64> {
         self.stop_rx.clone()
     }
 
     pub fn service_level(&self) -> ServiceLevel {
         self.level.clone()
+    }
+
+    pub fn service_address(&self) -> String{
+        self.address.clone()
     }
 }
 

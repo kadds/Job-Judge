@@ -1,10 +1,10 @@
 use crate::ServerInfo;
 use std::collections::HashMap;
 use tonic::transport::{Channel, Endpoint};
-pub mod random;
 use async_trait::async_trait;
-pub use random::*;
 use tokio::sync::Mutex;
+pub mod random;
+pub use random::RandomLoadBalancer;
 
 pub enum ServerChangeType {
     Add,
@@ -13,7 +13,7 @@ pub enum ServerChangeType {
 
 #[async_trait]
 pub trait LoadBalancer: Sync + Send {
-    async fn get_server(&self, uin: u64, flags: u64) -> Option<Channel>;
+    async fn one_of_channel(&self, uin: u64, flags: u64) -> Option<Channel>;
     async fn on_update(&mut self, s: Vec<(String, ServerInfo)>, change_type: ServerChangeType);
     async fn on_rpc_update(&mut self, s: Vec<(String, ServerInfo)>);
 }
