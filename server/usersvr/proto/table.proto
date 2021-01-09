@@ -2,7 +2,7 @@ syntax = "proto3";
 package table;
 
 message User {
-    uint64 vid = 1;
+    int64 vid = 1;
     string username = 2;
     string password = 3;
     string salt = 4;

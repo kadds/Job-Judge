@@ -1,10 +1,12 @@
 use micro_service::{log, service::MicroService};
-use std::error::Error;
+use sha2::{Sha256, Digest};
+use rand::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
 use sqlx::postgres::{PgPoolOptions, PgPool};
 use sqlx::Row;
 use tonic::{Request, Response, Status};
+use crate::table;
 
 type SqlRow = sqlx::postgres::PgRow;
 pub mod user {
@@ -22,6 +24,23 @@ pub struct UserSvrImpl {
     micro_service: Arc<MicroService>,
 }
 
+const CHARS: &str = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=+_";
+const PEPPER: &str = "&cv.98SKbSadfd=a8Dz0=";
+
+fn random_salt() -> String {
+    let mut rng = rand::thread_rng();
+    let len = rng.gen_range(25,30);
+    CHARS.chars().choose_multiple(&mut rng, len).into_iter().collect()
+}
+
+fn make_password_crypto(pwd: &str, salt: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(salt);
+    hasher.update(pwd);
+    hasher.update(PEPPER);
+    hex::encode(hasher.finalize())
+}
+
 #[tonic::async_trait]
 impl UserSvr for UserSvrImpl {
     async fn create_user(
@@ -29,15 +48,19 @@ impl UserSvr for UserSvrImpl {
         request: Request<CreateUserReq>,
     ) -> Result<Response<CreateUserRsp>, Status> {
         let req = request.into_inner();
-        let salt = "123";
+        let salt = random_salt();
         let pwd = req.password;
+        if pwd.len() < 6 {
+            return Err(Status::invalid_argument("password length too short"));
+        }
 
-        let id: i32 = match sqlx::query("INSERT INTO user_tbl 
-        (username, password, salt, nickname) VALUES 
-        ($1, $2, $3, $4)
+        let pwd_crypto = make_password_crypto(&pwd, &salt);
+
+        let id: i32 = match sqlx::query("INSERT INTO user_tbl (username, password, salt, nickname) VALUES 
+                ($1, $2, $3, $4)
         RETURNING id")
             .bind(&req.username)
-            .bind(&pwd)
+            .bind(&pwd_crypto)
             .bind(&salt)
             .bind(&req.username)
             .fetch_one(&self.pool)
@@ -60,7 +83,7 @@ impl UserSvr for UserSvrImpl {
 
         let req = request.into_inner();
         let res: Option<SqlRow> = match sqlx::query(
-            "SELECT password, salt from user_tbl where username=$1")
+            "SELECT vid, password, salt from user_tbl where username=$1")
             .bind(&req.username)
             .fetch_optional(&self.pool)
             .await
@@ -72,15 +95,20 @@ impl UserSvr for UserSvrImpl {
             }
         };
 
-        return if let Some(res) = res {
-            let pwd: String = res.get(0);
-            if pwd != req.password {
+        if let Some(res) = res {
+            let pwd_db: String = res.get(1);
+            let salt: String = res.get(2);
+            let pwd_crypto = make_password_crypto(&req.password, &salt);
+            if pwd_db != pwd_crypto {
                 Ok(Response::new(ValidUserRsp {
-                    correct: false
+                    correct: false,
+                    vid: 0
                 }))
             } else {
+                let vid: i64 = res.get(0);
                 Ok(Response::new(ValidUserRsp {
-                    correct: true
+                    correct: true,
+                    vid: vid as u64,
                 }))
             }
         } else {
@@ -92,32 +120,113 @@ impl UserSvr for UserSvrImpl {
         &self,
         request: Request<GetUserReq>,
     ) -> Result<Response<GetUserRsp>, Status> {
-        Err(Status::unavailable(""))
+        let req = request.into_inner();
+        let res: Option<table::User> = match sqlx::query_as::<_, table::User>(
+            "SELECT * from user_tbl where vid=$1")
+            .bind(&(req.vid as i64))
+            .fetch_optional(&self.pool)
+            .await
+        {
+            Ok(v) => v,
+            Err(err) => {
+                error!("execute sql failed when select. err {}", err);
+                return Err(Status::unavailable("execute sql failed"));
+            }
+        };
+        if let Some(user) = res {
+            Ok(Response::new(GetUserRsp {
+                userinfo: Some(user::UserInfo {
+                    vid: user.vid as u64,
+                    username: user.username,
+                    nickname: user.nickname,
+                    avatar: user.avatar,
+                    email: user.email,
+                })
+            }))
+        }
+        else {
+            Err(Status::not_found("user not found"))
+        }
     }
 
     async fn update_user(
         &self,
         request: Request<UpdateUserReq>,
     ) -> Result<Response<UpdateUserRsp>, Status> {
-        Err(Status::unavailable(""))
+        let req = request.into_inner();
+        let userinfo = req.userinfo.unwrap_or_default();
+        let res: Option<table::User> = match sqlx::query_as::<_, table::User>(
+            "SELECT * from user_tbl where vid=$1")
+            .bind(&(userinfo.vid as i64))
+            .fetch_optional(&self.pool)
+            .await
+        {
+            Ok(v) => v,
+            Err(err) => {
+                error!("execute sql failed when select. err {}", err);
+                return Err(Status::unavailable("execute sql failed"));
+            }
+        };
+        if let Some(user) = res {
+            let avatar = match userinfo.avatar.len() {
+                0 => user.avatar,
+                _ => userinfo.avatar,
+            };
+            let nickname = match userinfo.nickname.len() {
+                0 => user.nickname,
+                _ => userinfo.nickname,
+            };
+            if let Err(err) = sqlx::query("UPDATE user_tbl set avatar=$1, set nickname=$2 where vid=$3")
+                .bind(&avatar)
+                .bind(&nickname)
+                .bind(&user.vid)
+                .execute(&self.pool).await {
+                    error!("execute sql failed when select. err {}", err);
+                    return Err(Status::unavailable("execute sql failed"));
+            }
+        }
+        Ok(Response::new(UpdateUserRsp {}))
+    }
 
-        //Ok(Response::new(UpdateUserResult {}))
+    async fn update_password(
+        &self,
+        request: Request<UpdatePasswordReq>,
+    ) -> Result<Response<UpdatePasswordRsp>, Status> {
+        let req = request.into_inner();
+        let res: Option<table::User> = match sqlx::query_as::<_, table::User>(
+            "SELECT * from user_tbl where vid=$1")
+            .bind(&(req.vid as i64))
+            .fetch_optional(&self.pool)
+            .await
+        {
+            Ok(v) => v,
+            Err(err) => {
+                error!("execute sql failed when select. err {}", err);
+                return Err(Status::unavailable("execute sql failed"));
+            }
+        };
+        if let Some(user) = res {
+            if make_password_crypto(&req.old_password, &user.salt) != user.password {
+                return Err(Status::internal("password is not match"));
+            }
+
+            let new_salt = random_salt();
+            let pwd_crypto = make_password_crypto(&req.password, &new_salt);
+            if let Err(err) = sqlx::query("UPDATE user_tbl set password=$1, set salt=$2 where vid=$3")
+                .bind(&pwd_crypto)
+                .bind(&new_salt)
+                .bind(&user.vid)
+                .execute(&self.pool).await {
+                    error!("execute sql failed when select. err {}", err);
+                    return Err(Status::unavailable("execute sql failed"));
+            }
+            Ok(Response::new(UpdatePasswordRsp {}))
+        }
+        else {
+            Err(Status::not_found("user not found"))
+        }
     }
 }
-/*
-"
-CREATE TABLE user_tbl (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR NOT NULL,
-    password VARCHAR NOT NULL,
-    salt VARCHAR NOT NULL,
-    nickname VARCHAR NOT NULL,
-    email VARCHAR,
-    phone VARCHAR,
-    avatar VARCHAR
-)
-"
-*/
 
 pub async fn get(database_url: &str, micro_service: Arc<MicroService>) -> UserSvrServer<UserSvrImpl> {
     let connections: u32 = 10;
@@ -128,7 +237,7 @@ pub async fn get(database_url: &str, micro_service: Arc<MicroService>) -> UserSv
         .await {
             Ok(v) => v,
             Err(err) => {
-                error!("prepare/connect database err {}", err);
+                error!("connect database err {}", err);
                 std::process::exit(-1);
             }
         };

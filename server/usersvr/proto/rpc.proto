@@ -18,15 +18,25 @@ message ValidUserReq {
 
 message ValidUserRsp {
   bool correct = 1;
+  uint64 vid = 2;
 }
 
-message GetUserReq { uint64 uid = 1; }
+message GetUserReq { uint64 vid = 1; }
 
 message GetUserRsp { user.UserInfo userinfo = 1; }
 
 message UpdateUserReq { user.UserInfo userinfo = 1; }
 
-message UpdateUserRsp { bool ok = 1; }
+message UpdateUserRsp { }
+
+message UpdatePasswordReq {
+  uint64 vid = 1;
+  string password = 2;
+  string old_password = 3;
+}
+
+message UpdatePasswordRsp {
+}
 
 service UserSvr {
   rpc create_user(CreateUserReq) returns (CreateUserRsp);
@@ -36,4 +46,6 @@ service UserSvr {
   rpc get_user(GetUserReq) returns (GetUserRsp);
 
   rpc update_user(UpdateUserReq) returns (UpdateUserRsp);
+
+  rpc update_password(UpdatePasswordReq) returns (UpdatePasswordRsp);
 }

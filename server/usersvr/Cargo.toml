@@ -17,6 +17,9 @@ tokio = {version = "0.2", features = ["full"]}
 toml = "0.5"
 tonic = "0.3"
 sqlx = { version = "0.4", features = [ "runtime-tokio-rustls", "postgres" ] }
+rand = "0.7"
+sha2 = "0.9"
+hex = "0.4"
 
 [build-dependencies]
 tonic-build = "0.3"

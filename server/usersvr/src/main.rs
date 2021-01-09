@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate micro_service;
+extern crate sha2;
+extern crate hex;
 use std::env::var;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use micro_service::service::MicroService;

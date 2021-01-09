@@ -19,6 +19,12 @@ use tokio::sync::{watch, RwLock};
 
 type LoadBalancerHashMap = HashMap<String, Box<dyn LoadBalancer>>;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ServiceLevel  {
+    Test,
+    Prod,
+}
+
 pub struct MicroService {
     etcd_config: EtcdConfig,
     etcd: Client,
@@ -31,7 +37,9 @@ pub struct MicroService {
     stop_signal: watch::Sender<u64>,
     stop_rx: watch::Receiver<u64>,
     map: RwLock<LoadBalancerHashMap>,
+    level: ServiceLevel,
 }
+
 
 impl MicroService{
     pub async fn init(
@@ -89,6 +97,7 @@ impl MicroService{
                 lease_id,
                 map: RwLock::<LoadBalancerHashMap>::new(LoadBalancerHashMap::new()),
                 stop_signal,
+                level: ServiceLevel::Prod,
             });
 
             let ctime = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |v| v.as_millis() as i64);
@@ -277,6 +286,10 @@ impl MicroService{
 
     pub fn get_stop_signal(&self) -> watch::Receiver<u64> {
         self.stop_rx.clone()
+    }
+
+    pub fn service_level(&self) -> ServiceLevel {
+        self.level.clone()
     }
 }
 
