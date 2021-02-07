@@ -60,7 +60,7 @@ impl LoadBalancer for RandomLoadBalancer {
         match vec.len() {
             0 => None,
             v => {
-                let v = &vec[rand::thread_rng().gen_range(0, v)];
+                let v = &vec[rand::thread_rng().gen_range(0..v)];
                 self.cache.get_client(&v.1.address).await
             }
         }

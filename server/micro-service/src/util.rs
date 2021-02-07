@@ -1,5 +1,8 @@
-use rand::prelude::*;
-use rand::thread_rng;
+use rand::{
+    prelude::*,
+    thread_rng,
+};
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn current_ts() -> u64 {

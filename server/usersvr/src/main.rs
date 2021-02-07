@@ -9,16 +9,16 @@ use micro_service::cfg;
 use tonic::transport::Server;
 use tokio;
 use tokio::sync::watch;
-
+use tokio_stream::wrappers::TcpListenerStream;
 mod table;
 mod svr;
 
 async fn wait_stop_signal(mut signal: watch::Receiver<u64>) -> () {
-    signal.recv().await;
+    let _ = signal.changed().await;
     ()
 }
 
-#[tokio::main(core_threads = 4, max_threads = 10)]
+#[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() {
     let module = "usersvr";
     let config = tokio::fs::read("./config.toml").await.unwrap();
@@ -64,7 +64,7 @@ async fn main() {
     let service = svr::get(&config.database.url, ms).await;
     if let Err(err) = Server::builder()
         .add_service(service)
-        .serve_with_incoming_shutdown(listener, wait_stop_signal(stop_rx)).await
+        .serve_with_incoming_shutdown(TcpListenerStream::new(listener), wait_stop_signal(stop_rx)).await
     {
         early_log_error!(server_name, "startup server failed, err {}", err);
     }

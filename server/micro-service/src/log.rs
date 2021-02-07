@@ -1,9 +1,14 @@
-use tokio::net::TcpStream;
-use tokio::prelude::*;
-use tokio::sync::mpsc;
-use tokio::time::{delay_for, Duration};
-use std::future::Future;
-use std::sync::Arc;
+use std::{
+    future::Future,
+    sync::Arc,
+    time::Duration,
+};
+use tokio::{
+    net::TcpStream,
+    sync::mpsc,
+    time::sleep,
+    io::AsyncWriteExt,
+};
 
 static mut QUEUE: Option<mpsc::Sender<String>> = None;
 
@@ -22,13 +27,13 @@ struct TcpLogger {
 impl LogSender for TcpLogger {
     async fn do_send(&self, tx: mpsc::Sender<String>, rx: mpsc::Receiver<String>) {
         let mut rx = rx;
-        let mut tx = tx;
+        let tx = tx;
         loop {
             let mut conn = match TcpStream::connect(self.address.clone()).await {
                 Ok(v) => v,
                 Err(e) => {
                     eprintln!("{}", e);
-                    delay_for(Duration::from_secs(5)).await;
+                    sleep(Duration::from_secs(5)).await;
                     continue;
                 }
             };
@@ -56,7 +61,6 @@ impl LogSender for ConsoleLogger {
     }
 }
 
-#[tokio::main(core_threads = 1, max_threads = 1)]
 async fn tcp_logger_main(address: String, tx: mpsc::Sender<String>, rx: mpsc::Receiver<String>) {
     let logger = TcpLogger { address };
     logger.do_send(tx, rx).await;
@@ -71,7 +75,6 @@ pub fn init_tcp_logger(address: String) {
     std::thread::spawn(|| tcp_logger_main(address, tx, rx));
 }
 
-#[tokio::main(core_threads = 1, max_threads = 1)]
 async fn console_logger_main(tx: mpsc::Sender<String>, rx: mpsc::Receiver<String>) {
     let logger = ConsoleLogger {};
     logger.do_send(tx, rx).await;

@@ -4,10 +4,12 @@ use super::load_balancer::*;
 use super::log;
 use super::ServerInfo;
 use std::time::{Duration, SystemTime};
-use tokio::stream::StreamExt;
-use tokio::time::delay_for;
 use tonic;
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::{
+    signal::unix::{signal, SignalKind},
+    time::sleep,
+};
+use tokio_stream::StreamExt;
 
 use etcd_rs::{
     Client, ClientConfig, EventType, KeyRange, LeaseGrantRequest,
@@ -55,7 +57,7 @@ async fn retry_connect_client(etcd_config: &EtcdConfig, retry_times: u32, name: 
             },
             Err(e) => {
                 early_log_warn!(name, "etcd connect fail result {:?} times {}", e, i);
-                delay_for(Duration::from_secs(1)).await;
+                sleep(Duration::from_secs(1)).await;
             }
         };
     }
@@ -71,7 +73,7 @@ async fn retry_lease_id(client: &Client, retry_times: u32, name: &str, ttl: Dura
             Ok(v) => {
                 if v.id() == 0 {
                     early_log_error!(name, "request lease fail, lease id returns 0");
-                    delay_for(Duration::from_secs(1)).await;
+                    sleep(Duration::from_secs(1)).await;
                 }
                 else {
                     early_log_info!(name, "request lease id is {}", v.id());
@@ -81,7 +83,7 @@ async fn retry_lease_id(client: &Client, retry_times: u32, name: &str, ttl: Dura
             Err(e) => {
                 early_log_error!(name, "request lease fail result {:?}", e);
                 err = Some(e);
-                delay_for(Duration::from_secs(1)).await;
+                sleep(Duration::from_secs(1)).await;
             }
         };
     }
@@ -106,7 +108,7 @@ async fn retry_write_with_lease(client: &Client, retry_times: u32, name: &str, l
             Err(e) => {
                 early_log_error!(name, "write server info (etcd) fail result {:?}", e);
                 err = Some(e);
-                delay_for(Duration::from_secs(1)).await;
+                sleep(Duration::from_secs(1)).await;
             }
         };
     }
@@ -159,7 +161,7 @@ impl MicroService{
 
         // make struct
         let (stop_signal, mut stop_signal_rx) = watch::channel(1);
-        stop_signal_rx.recv().await;
+        let _ = stop_signal_rx.changed().await;
 
         let res = Arc::new(MicroService {
             etcd: client,
@@ -188,12 +190,12 @@ impl MicroService{
                 .keep_alive(LeaseKeepAliveRequest::new(self.lease_id))
                 .await;
             let target = match res {
-                Ok(_) => delay_for(ttl),
-                Err(err) => { warn!("send ttl message fail {:?}", err); delay_for(Duration::from_secs(1))}
+                Ok(_) => sleep(ttl),
+                Err(err) => { warn!("send ttl message fail {:?}", err); sleep(Duration::from_secs(1))}
             };
             tokio::select! {
                 _ = target => {},
-                Some(_) = stop_rx.recv() => {
+                Ok(_) = stop_rx.changed() => {
                     break;
                 }
             }
@@ -210,17 +212,19 @@ impl MicroService{
 
     async fn watch_main(self: Arc<Self>, module: String) -> Result<()> {
         let mut wc = self.etcd.watch_client();
-        let mut inbound = wc
-            .watch(KeyRange::prefix(self.etcd_config.prefix.clone() + &module))
-            .await;
+        wc.watch(KeyRange::prefix(self.etcd_config.prefix.clone() + &module))
+        .await?;
+
+        let mut watch_recver = wc.take_receiver().await;
+
         let mut stop_rx = self.stop_rx.clone();
 
         loop {
             let r = tokio::select! {
-                Some(r) = inbound.next() => {
+                Some(r) = watch_recver.next() => {
                     r
                 }
-                Some(_) = stop_rx.recv() => {
+                Ok(_) = stop_rx.changed() => {
                     break;
                 }
             };
@@ -284,12 +288,12 @@ impl MicroService{
             _ = sigint.recv() => {"SIGINT"},
             _= sigquit.recv() => {"SIGQUIT"},
             _= sigter.recv() => {"SIGTER"},
-            Some(_) = stop_rx.recv() => {
+            Ok(_) = stop_rx.changed() => {
                 "SIG_UNKNOWN"
             },
         };
         info!("signal {} received. Stopping server", signal_type);
-        let _ = self.stop_signal.broadcast(0);
+        let _ = self.stop_signal.send(0);
     }
 
     pub async fn channel(
@@ -320,7 +324,7 @@ impl MicroService{
 
     pub fn stop_self(&self) {
         debug!("sending stop signal");
-        let _ = self.stop_signal.broadcast(0);
+        let _ = self.stop_signal.send(0);
     }
 
     pub fn service_name(&self) -> Arc<String> {

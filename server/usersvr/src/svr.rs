@@ -29,7 +29,7 @@ const PEPPER: &str = "&cv.98SKbSadfd=a8Dz0=";
 
 fn random_salt() -> String {
     let mut rng = rand::thread_rng();
-    let len = rng.gen_range(25,30);
+    let len = rng.gen_range(25..30);
     CHARS.chars().choose_multiple(&mut rng, len).into_iter().collect()
 }
 
