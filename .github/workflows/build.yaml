@@ -4,9 +4,6 @@ on:
   push: 
     branches: [master]
 
-env:
-  BASE_DIR: target/x86_64-unknown-linux-musl/release/
-  OUT_DIR: out/
 jobs:
   rust:
     name: build
@@ -44,13 +41,13 @@ jobs:
       - uses: docker/build-push-action@v2.2.2
         with:
           name: usersvr
-          context: ${{OUT_DIR}}usersvr
+          context: out/usersvr
           push: true
           tags: usersvr:${{github.sha}}, usersvr:latest
       - uses: docker/build-push-action@v2.2.2
         with:
           name: sdwp
-          context: ${{OUT_DIR}}sdwp
+          context: out/sdwp
           push: true
           tags: sdwp:${{github.sha}}, sdwp:latest
 
