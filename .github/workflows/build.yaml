@@ -24,8 +24,6 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: build binary and test
         uses: actions-rs/toolchain@v1
-        env: 
-          RUSTUP_DIST_SERVER: https://mirrors.tuna.tsinghua.edu.cn/rustup
         with:
           profile: minimal
           toolchain: stable
@@ -46,13 +44,13 @@ jobs:
       - uses: docker/build-push-action@v2.2.2
         with:
           name: usersvr
-          context: ${{OUT_DIR}}${{INPUT_NAME}}
+          context: ${{OUT_DIR}}usersvr
           push: true
-          tags: ${{INPUT_NAME}}:${{github.sha}}, ${{INPUT_NAME}}:latest
+          tags: usersvr:${{github.sha}}, usersvr:latest
       - uses: docker/build-push-action@v2.2.2
         with:
           name: sdwp
-          context: ${{OUT_DIR}}${{INPUT_NAME}}
+          context: ${{OUT_DIR}}sdwp
           push: true
-          tags: ${{INPUT_NAME}}:${{github.sha}}, ${{INPUT_NAME}}:latest
+          tags: sdwp:${{github.sha}}, sdwp:latest
 
