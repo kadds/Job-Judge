@@ -1,0 +1,3 @@
+FROM alpine:latest
+COPY ./${{BINARY}} /root/${{BINARY}}
+ENTRYPOINT ["./${{BINARY}}"]

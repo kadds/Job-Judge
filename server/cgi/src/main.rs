@@ -93,8 +93,8 @@ async fn main() -> std::io::Result<()> {
         ret = running_server => {
             ret
         }
-        Some(_) = stop_rx.recv() => {
-            tokio::time::delay_for(std::time::Duration::from_millis(800)).await;
+        Ok(_) = stop_rx.changed() => {
+            tokio::time::sleep(std::time::Duration::from_millis(800)).await;
             actix_rt::System::current().stop();
             Ok(())
         }

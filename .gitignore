@@ -32,3 +32,6 @@ yarn-error.log*
 !**/src/interface/mod.rs
 data.db
 *.log
+.secrets
+.config
+out/

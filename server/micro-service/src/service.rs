@@ -24,6 +24,7 @@ type LoadBalancerHashMap = HashMap<String, Box<dyn LoadBalancer>>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ServiceLevel  {
     Test,
+    Pre,
     Prod,
 }
 
@@ -154,7 +155,7 @@ impl MicroService{
         let value = ServerInfo {
             address: address.clone(),
             enabled: true,
-            ctime: ctime,
+            ctime,
             mtime: ctime
         }.to_json();
         retry_write_with_lease(&client, retry_times, &name, lease_id, key, value).await?;

@@ -14,7 +14,7 @@ const MAXTIMEAVL: u64 = 60 * 60 * 12;
 pub async fn create() -> (String, u64) {
     loop {
         let mut rng = rand::thread_rng();
-        let len = rng.gen_range(30,45);
+        let len = rng.gen_range(30..45);
         let token: String = STRMAP.chars().choose_multiple(&mut rng, len).into_iter().collect();
         let ctime: u64 = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
             .map_or(0, |v| v.as_secs());

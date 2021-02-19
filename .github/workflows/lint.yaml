@@ -1,0 +1,22 @@
+name: Code-Linter
+
+on: [push, pull_request]
+jobs:
+  rust:
+    name: rust_linter
+    runs-on: ubuntu-latest 
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: linter & clippy
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+          default: true
+      - run: |
+          cargo fmt -- --check
+          cargo clippy -- -Dwarnings
+

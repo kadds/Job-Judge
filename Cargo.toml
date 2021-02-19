@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "server/usersvr",
+    "server/cgi",
+    "server/micro-service",
+    "server/sdwp"
+]

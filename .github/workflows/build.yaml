@@ -1,0 +1,58 @@
+name: Build
+
+on: 
+  push: 
+    branches: [master]
+
+env:
+  BASE_DIR: target/x86_64-unknown-linux-musl/release/
+  OUT_DIR: out/
+jobs:
+  rust:
+    name: build
+    runs-on: ubuntu-latest 
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.rustup/toolchains
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: build binary and test
+        uses: actions-rs/toolchain@v1
+        env: 
+          RUSTUP_DIST_SERVER: https://mirrors.tuna.tsinghua.edu.cn/rustup
+        with:
+          profile: minimal
+          toolchain: stable
+          target: x86_64-unknown-linux-musl
+          default: true
+      - run: |
+          cargo build --release --target=x86_64-unknown-linux-musl
+          cargo test --release --target=x86_64-unknown-linux-musl
+          sh post_build.sh
+
+      - name: login docker register
+        uses: docker/login-action@v1 
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - uses: docker/build-push-action@v2.2.2
+        with:
+          name: usersvr
+          context: ${{OUT_DIR}}${{INPUT_NAME}}
+          push: true
+          tags: ${{INPUT_NAME}}:${{github.sha}}, ${{INPUT_NAME}}:latest
+      - uses: docker/build-push-action@v2.2.2
+        with:
+          name: sdwp
+          context: ${{OUT_DIR}}${{INPUT_NAME}}
+          push: true
+          tags: ${{INPUT_NAME}}:${{github.sha}}, ${{INPUT_NAME}}:latest
+

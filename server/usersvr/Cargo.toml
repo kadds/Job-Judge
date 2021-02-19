@@ -23,4 +23,4 @@ sha2 = "0.9"
 hex = "0.4"
 
 [build-dependencies]
-tonic-build = "0.3"
+tonic-build = "0.4"
