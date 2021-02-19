@@ -20,17 +20,18 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: sudo apt install musl-tools
-      - name: build binary and test
+      - name: get toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           target: x86_64-unknown-linux-musl
           default: true
-      - run: |
+      - name: build
+        run: |
           cargo build --release --target=x86_64-unknown-linux-musl
           cargo test --release --target=x86_64-unknown-linux-musl
-          sh post_build.sh
+      - run: ./post_build.sh
 
       - name: login docker register
         uses: docker/login-action@v1 

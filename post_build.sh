@@ -1,3 +1,4 @@
+#!/bin/bash
 function copy_data(){
     mkdir -p out/${1}/
     strip -s target/x86_64-unknown-linux-musl/release/${1} -o out/${1}/${1}
