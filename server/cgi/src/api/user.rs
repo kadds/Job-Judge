@@ -1,10 +1,9 @@
-use actix_web::{
-    connect, delete, get, head, options, patch, post, put, trace, web::Path, HttpResponse,
-    Responder
-};
 use crate::rpc::*;
 use crate::MS;
-
+use actix_web::{
+    connect, delete, get, head, options, patch, post, put, trace, web::Path, HttpResponse,
+    Responder,
+};
 
 #[post("/login")]
 pub async fn login() -> impl Responder {
@@ -17,7 +16,7 @@ pub async fn login() -> impl Responder {
             }
         })
     };
-    
+
     HttpResponse::Ok()
 }
 

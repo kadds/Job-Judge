@@ -4,7 +4,7 @@ use crate::ServerInfo;
 use async_trait::async_trait;
 use rand::prelude::*;
 use std::collections::HashMap;
-use tonic::transport::{Channel};
+use tonic::transport::Channel;
 
 pub struct RandomLoadBalancer {
     servers: Vec<(String, ServerInfo)>,

@@ -1,14 +1,5 @@
-use std::{
-    future::Future,
-    sync::Arc,
-    time::Duration,
-};
-use tokio::{
-    net::TcpStream,
-    sync::mpsc,
-    time::sleep,
-    io::AsyncWriteExt,
-};
+use std::{future::Future, sync::Arc, time::Duration};
+use tokio::{io::AsyncWriteExt, net::TcpStream, sync::mpsc, time::sleep};
 
 static mut QUEUE: Option<mpsc::Sender<String>> = None;
 
@@ -99,7 +90,7 @@ pub fn send_log(log: String) {
 }
 
 #[derive(Clone)]
-pub struct LogContext{
+pub struct LogContext {
     pub vid: u64,
     pub tid: u64,
     pub nid: u64,
@@ -111,30 +102,47 @@ tokio::task_local! {
     pub static LOG_CONTEXT: LogContext;
 }
 
-pub async fn make_context<T, F>(vid: u64, tid: u64, nid: u64, pnid: u64, server_name: Arc<String>, future: F) -> T
-    where
-        F: Future<Output = T>
+pub async fn make_context<T, F>(
+    vid: u64,
+    tid: u64,
+    nid: u64,
+    pnid: u64,
+    server_name: Arc<String>,
+    future: F,
+) -> T
+where
+    F: Future<Output = T>,
 {
-    LOG_CONTEXT.scope(LogContext{
-        vid,
-        tid,
-        nid,
-        pnid,
-        server_name
-    }, future).await
+    LOG_CONTEXT
+        .scope(
+            LogContext {
+                vid,
+                tid,
+                nid,
+                pnid,
+                server_name,
+            },
+            future,
+        )
+        .await
 }
 
-pub async fn make_empty_context<T, F>(server_name: Arc<String>, future: F) -> T 
-    where
-        F: Future<Output = T>
+pub async fn make_empty_context<T, F>(server_name: Arc<String>, future: F) -> T
+where
+    F: Future<Output = T>,
 {
-    LOG_CONTEXT.scope(LogContext{
-        vid: 0,
-        tid: 0,
-        nid: 0,
-        pnid: 0,
-        server_name
-    }, future).await
+    LOG_CONTEXT
+        .scope(
+            LogContext {
+                vid: 0,
+                tid: 0,
+                nid: 0,
+                pnid: 0,
+                server_name,
+            },
+            future,
+        )
+        .await
 }
 
 #[macro_export]
@@ -181,7 +189,6 @@ macro_rules! early_log_debug {
         early_log!("debug", $($log)+);
     };
 }
-
 
 #[macro_export]
 macro_rules! log {
@@ -250,34 +257,24 @@ macro_rules! debug {
 macro_rules! click_log {
     ($ts: tt, $cost: tt, $method: tt, $url: tt, $host: tt, $return_code: tt, $return_length: tt) => {
         match $crate::log::LOG_CONTEXT.try_with(|v| v.clone()) {
-            Ok(v) => {
-                $crate::log::send_log(format!(
-                    "1 {} {} {} {} {} {} {} {} {} {} {}",
-                    v.vid,
-                    $ts,
-                    v.tid,
-                    v.nid,
-                    &v.server_name,
-                    $cost,
-                    $method,
-                    $url,
-                    $host,
-                    $return_code,
-                    $return_length
-                ))
-            },
-            Err(_) => {
-                $crate::log::send_log(format!(
-                    "1 0 {} 0 0 UNKNOWN {} {} {} {} {} {}",
-                    $ts,
-                    $cost,
-                    $method,
-                    $url,
-                    $host,
-                    $return_code,
-                    $return_length
-                ))
-            }
+            Ok(v) => $crate::log::send_log(format!(
+                "1 {} {} {} {} {} {} {} {} {} {} {}",
+                v.vid,
+                $ts,
+                v.tid,
+                v.nid,
+                &v.server_name,
+                $cost,
+                $method,
+                $url,
+                $host,
+                $return_code,
+                $return_length
+            )),
+            Err(_) => $crate::log::send_log(format!(
+                "1 0 {} 0 0 UNKNOWN {} {} {} {} {} {}",
+                $ts, $cost, $method, $url, $host, $return_code, $return_length
+            )),
         }
     };
 }

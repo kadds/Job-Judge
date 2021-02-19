@@ -1,7 +1,4 @@
-use rand::{
-    prelude::*,
-    thread_rng,
-};
+use rand::{prelude::*, thread_rng};
 
 use std::time::{SystemTime, UNIX_EPOCH};
 

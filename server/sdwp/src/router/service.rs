@@ -1,13 +1,9 @@
-use actix_web::{
-    get, HttpResponse, Responder, web, post
-};
+use actix_web::{get, post, web, HttpResponse, Responder};
 // use anyhow::Result;
 use super::super::AppData;
-use etcd_rs::{
-    Client, ClientConfig, KeyRange, RangeRequest
-};
-use serde_json::{json, Value};
+use etcd_rs::{Client, ClientConfig, KeyRange, RangeRequest};
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
 
@@ -39,9 +35,9 @@ pub struct RpcPair {
 }
 
 impl From<ServicePair> for RpcPair {
-    fn from(pair: ServicePair)-> Self {
+    fn from(pair: ServicePair) -> Self {
         RpcPair {
-            module_name:  pair.module_name,
+            module_name: pair.module_name,
             server_name: pair.server_name,
             rpc_name: "".to_owned(),
         }
@@ -76,13 +72,18 @@ async fn get_service_meta(address: &str) -> anyhow::Result<ServiceMeta> {
     Err(anyhow::Error::msg("fail"))
 }
 
-async fn get_servers_info(etcd_config: &crate::cfg::EtcdConfig)
-        -> FetchServiceResult<HashMap<String, Vec<ServiceDetail>>> {
+async fn get_servers_info(
+    etcd_config: &crate::cfg::EtcdConfig,
+) -> FetchServiceResult<HashMap<String, Vec<ServiceDetail>>> {
     let client = Client::connect(ClientConfig {
         endpoints: etcd_config.endpoints.to_owned(),
-        auth: Some((etcd_config.username.to_owned(), etcd_config.password.to_owned())),
+        auth: Some((
+            etcd_config.username.to_owned(),
+            etcd_config.password.to_owned(),
+        )),
         tls: None,
-    }).await?;
+    })
+    .await?;
 
     let req = RangeRequest::new(KeyRange::prefix(format!("{}/", etcd_config.prefix)));
 
@@ -97,21 +98,20 @@ async fn get_servers_info(etcd_config: &crate::cfg::EtcdConfig)
         let val = serde_json::Value::from(value.clone());
 
         key.replace_range(0..etcd_config.prefix.len(), "");
-        let key_split = key.split('/'); 
+        let key_split = key.split('/');
         let mut key_split = key_split.skip(1);
         let module = key_split.next().ok_or(FetchServiceError::DataUnException)?;
         let name = key_split.next().ok_or(FetchServiceError::DataUnException)?;
         // info!("module {} name {}", module, name);
         let service_detail = ServiceDetail {
             name: name.to_owned(),
-            address: val["address"].as_str().unwrap_or_default().to_owned()
+            address: val["address"].as_str().unwrap_or_default().to_owned(),
         };
         debug!("{} {} {}", key, value, service_detail.address);
         if let Some(v) = map.get_mut(module) {
             v.push(service_detail);
-        }
-        else {
-            map.insert(module.to_owned(), vec!(service_detail));
+        } else {
+            map.insert(module.to_owned(), vec![service_detail]);
         }
     }
     Ok(map)
@@ -125,56 +125,57 @@ pub async fn list(data: web::Data<Arc<AppData>>) -> impl Responder {
         Err(err) => {
             let err = format!("{}", err);
             error!("{}", err);
-            return HttpResponse::Ok().json(json!({"err_msg": err} ));
-        }        
+            return HttpResponse::Ok().json(json!({ "err_msg": err }));
+        }
     };
 
-    let mut rsp = ListResult {
-        list: Vec::new(),
-    };
+    let mut rsp = ListResult { list: Vec::new() };
 
     for module in services {
         rsp.list.push(ModuleServices {
             name: module.0,
-            services: module.1.into_iter().map(|v| v.name).collect(), 
-        }); 
+            services: module.1.into_iter().map(|v| v.name).collect(),
+        });
     }
-     
+
     HttpResponse::Ok().json(rsp)
 }
 
-fn Get<'a>(services: &'a HashMap<String, Vec<ServiceDetail>>, service: web::Json<ServicePair>) 
-    -> FetchServiceResult<&'a ServiceDetail>{
-    if let Some(module) =  services.get(&service.module_name) {
+fn get(
+    services: &HashMap<String, Vec<ServiceDetail>>,
+    service: web::Json<ServicePair>,
+) -> FetchServiceResult<&ServiceDetail> {
+    if let Some(module) = services.get(&service.module_name) {
         if let Some(service) = module.iter().find(|v| v.name == service.server_name) {
             Ok(service)
-        }
-        else {
+        } else {
             Err(FetchServiceError::NotFound)
         }
-    }
-    else {
+    } else {
         Err(FetchServiceError::NotFound)
     }
 }
 
 #[get("/rpcs")]
-pub async fn get_rpcs(data: web::Data<Arc<AppData>>, service: web::Json<ServicePair>) -> impl Responder {
+pub async fn get_rpcs(
+    data: web::Data<Arc<AppData>>,
+    service: web::Json<ServicePair>,
+) -> impl Responder {
     let etcd_config = &data.config.etcd;
     let services = match get_servers_info(etcd_config).await {
         Ok(v) => v,
         Err(err) => {
             let err = format!("{}", err);
             error!("{}", err);
-            return HttpResponse::Ok().json(json!({"err_msg": err} ));
-        }        
+            return HttpResponse::Ok().json(json!({ "err_msg": err }));
+        }
     };
-    let service = match Get(&services, service) {
+    let service = match get(&services, service) {
         Ok(v) => v,
         Err(err) => {
             let err = format!("{}", err);
             error!("{}", err);
-            return HttpResponse::Ok().json(json!({"err_msg": err} ));
+            return HttpResponse::Ok().json(json!({ "err_msg": err }));
         }
     };
 
@@ -183,7 +184,7 @@ pub async fn get_rpcs(data: web::Data<Arc<AppData>>, service: web::Json<ServiceP
         Err(err) => {
             let err = format!("{}", err);
             error!("{}", err);
-            return HttpResponse::Ok().json(json!({"err_msg": err} ));
+            return HttpResponse::Ok().json(json!({ "err_msg": err }));
         }
     };
 
@@ -191,19 +192,21 @@ pub async fn get_rpcs(data: web::Data<Arc<AppData>>, service: web::Json<ServiceP
 }
 
 #[get("/rpc")]
-pub async fn get_rpc_info(data: web::Data<Arc<AppData>>, rpc: web::Json<RpcPair>) -> impl Responder {
+pub async fn get_rpc_info(
+    data: web::Data<Arc<AppData>>,
+    rpc: web::Json<RpcPair>,
+) -> impl Responder {
     let etcd_config = &data.config.etcd;
     let services = match get_servers_info(etcd_config).await {
         Ok(v) => v,
         Err(err) => {
             let err = format!("{}", err);
             error!("{}", err);
-            return HttpResponse::Ok().json(json!({"err_msg": err} ));
-        }        
+            return HttpResponse::Ok().json(json!({ "err_msg": err }));
+        }
     };
     HttpResponse::Ok().json({})
 }
-
 
 #[post("/request")]
 pub async fn request(req: web::Json<Value>) -> impl Responder {

@@ -1,7 +1,7 @@
 use rand::prelude::*;
 use std::collections::HashMap;
+use std::time::SystemTime;
 use tokio::sync::Mutex;
-use std::time::{SystemTime};
 
 static STRMAP: &str = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=+_";
 
@@ -15,12 +15,17 @@ pub async fn create() -> (String, u64) {
     loop {
         let mut rng = rand::thread_rng();
         let len = rng.gen_range(30..45);
-        let token: String = STRMAP.chars().choose_multiple(&mut rng, len).into_iter().collect();
-        let ctime: u64 = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH)
+        let token: String = STRMAP
+            .chars()
+            .choose_multiple(&mut rng, len)
+            .into_iter()
+            .collect();
+        let ctime: u64 = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
             .map_or(0, |v| v.as_secs());
         let mut map = HASHMAP.lock().await;
         if !map.contains_key(&token) {
-            map.insert(token.clone(), ctime); 
+            map.insert(token.clone(), ctime);
             return (token, ctime);
         }
     }
@@ -29,16 +34,18 @@ pub async fn create() -> (String, u64) {
 pub async fn is_valid(token: &str) -> bool {
     let mut map = HASHMAP.lock().await;
     if let Some(time) = map.get(token) {
-        if SystemTime::now().duration_since(
-            SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs() > MAXTIMEAVL + time {
+        if SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+            > MAXTIMEAVL + time
+        {
             map.remove(token);
             false
-        } 
-        else {
+        } else {
             true
         }
-    }
-    else  {
+    } else {
         false
     }
 }

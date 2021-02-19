@@ -1,8 +1,8 @@
 use crate::ServerInfo;
-use std::collections::HashMap;
-use tonic::transport::{Channel, Endpoint};
 use async_trait::async_trait;
+use std::collections::HashMap;
 use tokio::sync::Mutex;
+use tonic::transport::{Channel, Endpoint};
 pub mod random;
 pub use random::RandomLoadBalancer;
 

@@ -15,23 +15,18 @@ pub type Result<T> = std::result::Result<T, Error>;
 use crate::log;
 use backtrace::Backtrace;
 
-pub fn panic_hook (){
+pub fn panic_hook() {
     std::panic::set_hook(Box::new(|info| {
-        std::thread::sleep(std::time::Duration::from_secs(1)); 
+        std::thread::sleep(std::time::Duration::from_secs(1));
         let bt = Backtrace::new();
         let payload = info.payload();
-        loop {
-            if let Some(s) = payload.downcast_ref::<&str>() {
-                error!("panic occurred: {:?}\n{:?}", s, bt);
-                break;
-            }
-            if let Some(s) = info.payload().downcast_ref::<String>() {
-                error!("panic occurred: {:?}\n{:?}", s, bt);
-                break;
-            } 
+        if let Some(s) = payload.downcast_ref::<&str>() {
+            error!("panic occurred: {:?}\n{:?}", s, bt);
+        } else if let Some(s) = info.payload().downcast_ref::<String>() {
+            error!("panic occurred: {:?}\n{:?}", s, bt);
+        } else {
             error!("panic occurred.\n{:?}", bt);
-            break;
         }
-       std::thread::sleep(std::time::Duration::from_secs(3)); 
+        std::thread::sleep(std::time::Duration::from_secs(3));
     }));
 }

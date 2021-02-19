@@ -5,14 +5,13 @@ extern crate log;
 #[macro_use]
 extern crate lazy_static;
 
-
+mod cfg;
 mod middleware;
 mod router;
 mod token;
-mod cfg;
 use std::sync::Arc;
 
-use actix_web::{web, App, HttpServer, middleware::Logger};
+use actix_web::{middleware::Logger, web, App, HttpServer};
 
 #[derive(Debug, Clone)]
 pub struct AppData {
@@ -24,13 +23,10 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let config = tokio::fs::read("./config.toml").await.unwrap();
-    let config: cfg::Config =
-        toml::from_slice(&config).unwrap();
+    let config: cfg::Config = toml::from_slice(&config).unwrap();
 
     let port: u16 = config.comm.port;
-    let app_data = Arc::new(AppData {
-        config
-    });
+    let app_data = Arc::new(AppData { config });
 
     info!("bind at 0.0.0.0:{}", port);
 
@@ -45,17 +41,14 @@ async fn main() -> std::io::Result<()> {
                     .service(router::service::list)
                     .service(router::service::get_rpc_info)
                     .service(router::service::get_rpcs)
-                    .service(router::service::request)
+                    .service(router::service::request),
             )
-            .service(
-                web::scope("/user")
-                    .service(router::user::login)
-            )
+            .service(web::scope("/user").service(router::user::login))
     })
-        .bind(format!("0.0.0.0:{}", port))?
-        .run().await;
+    .bind(format!("0.0.0.0:{}", port))?
+    .run()
+    .await;
 
     info!("exit...");
     Ok(())
 }
-

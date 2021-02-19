@@ -4,25 +4,25 @@ use super::load_balancer::*;
 use super::log;
 use super::ServerInfo;
 use std::time::{Duration, SystemTime};
-use tonic;
 use tokio::{
     signal::unix::{signal, SignalKind},
     time::sleep,
 };
 use tokio_stream::StreamExt;
+use tonic;
 
 use etcd_rs::{
-    Client, ClientConfig, EventType, KeyRange, LeaseGrantRequest,
-    LeaseKeepAliveRequest, PutRequest, DeleteRequest
+    Client, ClientConfig, DeleteRequest, EventType, KeyRange, LeaseGrantRequest,
+    LeaseKeepAliveRequest, PutRequest,
 };
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{watch, RwLock};
 
 type LoadBalancerHashMap = HashMap<String, Box<dyn LoadBalancer>>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ServiceLevel  {
+pub enum ServiceLevel {
     Test,
     Pre,
     Prod,
@@ -44,18 +44,25 @@ pub struct MicroService {
     address: String,
 }
 
-async fn retry_connect_client(etcd_config: &EtcdConfig, retry_times: u32, name: &str) -> Result<Client> {
+async fn retry_connect_client(
+    etcd_config: &EtcdConfig,
+    retry_times: u32,
+    name: &str,
+) -> Result<Client> {
     for i in 0..retry_times {
         let client = Client::connect(ClientConfig {
             endpoints: etcd_config.endpoints.to_owned(),
-            auth: Some((etcd_config.username.to_owned(), etcd_config.password.to_owned())),
+            auth: Some((
+                etcd_config.username.to_owned(),
+                etcd_config.password.to_owned(),
+            )),
             tls: None,
         })
         .await;
         match client {
             Ok(client) => {
                 return Ok(client);
-            },
+            }
             Err(e) => {
                 early_log_warn!(name, "etcd connect fail result {:?} times {}", e, i);
                 sleep(Duration::from_secs(1)).await;
@@ -66,8 +73,13 @@ async fn retry_connect_client(etcd_config: &EtcdConfig, retry_times: u32, name: 
     Err(Error::ConnectionFailed)
 }
 
-async fn retry_lease_id(client: &Client, retry_times: u32, name: &str, ttl: Duration) -> Result<u64> {
-    let mut err  = None;
+async fn retry_lease_id(
+    client: &Client,
+    retry_times: u32,
+    name: &str,
+    ttl: Duration,
+) -> Result<u64> {
+    let mut err = None;
     for _ in 0..retry_times {
         // new lease id for path
         match client.lease().grant(LeaseGrantRequest::new(ttl)).await {
@@ -75,10 +87,9 @@ async fn retry_lease_id(client: &Client, retry_times: u32, name: &str, ttl: Dura
                 if v.id() == 0 {
                     early_log_error!(name, "request lease fail, lease id returns 0");
                     sleep(Duration::from_secs(1)).await;
-                }
-                else {
+                } else {
                     early_log_info!(name, "request lease id is {}", v.id());
-                    return Ok(v.id())
+                    return Ok(v.id());
                 }
             }
             Err(e) => {
@@ -90,22 +101,27 @@ async fn retry_lease_id(client: &Client, retry_times: u32, name: &str, ttl: Dura
     }
     if let Some(err) = err {
         Err(Error::OperationError(err))
-    }
-    else {
+    } else {
         Err(Error::ResourceLimit)
     }
 }
 
-async fn retry_write_with_lease(client: &Client, retry_times: u32, name: &str, lease_id: u64, key: String, data: String) 
-    -> Result<()> {
-    let mut err  = None;
+async fn retry_write_with_lease(
+    client: &Client,
+    retry_times: u32,
+    name: &str,
+    lease_id: u64,
+    key: String,
+    data: String,
+) -> Result<()> {
+    let mut err = None;
     for _ in 0..retry_times {
-        let mut req = PutRequest::new(key.clone(), data.clone()); 
+        let mut req = PutRequest::new(key.clone(), data.clone());
         req.set_lease(lease_id);
         match client.kv().put(req).await {
             Ok(_) => {
                 return Ok(());
-            },
+            }
             Err(e) => {
                 early_log_error!(name, "write server info (etcd) fail result {:?}", e);
                 err = Some(e);
@@ -118,7 +134,7 @@ async fn retry_write_with_lease(client: &Client, retry_times: u32, name: &str, l
     Err(Error::OperationError(err.unwrap()))
 }
 
-impl MicroService{
+impl MicroService {
     pub async fn init(
         etcd_config: EtcdConfig,
         module: String,
@@ -126,10 +142,15 @@ impl MicroService{
         address: String,
         retry_times: u32,
         level: ServiceLevel,
-    )-> Result<Arc<MicroService>> {
+    ) -> Result<Arc<MicroService>> {
         crate::error::panic_hook();
         assert!(etcd_config.ttl >= 30);
-        early_log_debug!(name, "connecting micro-service center address {:?} at prefix {}", etcd_config.endpoints, etcd_config.prefix);
+        early_log_debug!(
+            name,
+            "connecting micro-service center address {:?} at prefix {}",
+            etcd_config.endpoints,
+            etcd_config.prefix
+        );
 
         // connect to etcd
         let client = retry_connect_client(&etcd_config, retry_times, &name).await?;
@@ -139,25 +160,26 @@ impl MicroService{
         let lease_id = retry_lease_id(&client, retry_times, &name, ttl).await?;
 
         // write server config
-        let ctime = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |v| v.as_millis() as i64);
-        let key = format!(
-            "{}/{}/{}/info",
-            etcd_config.prefix, module, name
-        );
+        let ctime = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map_or(0, |v| v.as_millis() as i64);
+        let key = format!("{}/{}/{}/info", etcd_config.prefix, module, name);
         let value = ServerInfo {
             address: address.clone(),
             enabled: false,
             ctime: ctime,
-            mtime: ctime
-        }.to_json();
+            mtime: ctime,
+        }
+        .to_json();
         retry_write_with_lease(&client, retry_times, &name, lease_id, key.clone(), value).await?;
 
         let value = ServerInfo {
             address: address.clone(),
             enabled: true,
             ctime,
-            mtime: ctime
-        }.to_json();
+            mtime: ctime,
+        }
+        .to_json();
         retry_write_with_lease(&client, retry_times, &name, lease_id, key, value).await?;
 
         // make struct
@@ -177,8 +199,14 @@ impl MicroService{
             level,
         });
 
-        tokio::spawn(log::make_empty_context(res.name.clone(), res.clone().ttl_main(ttl, stop_signal_rx.clone())));
-        tokio::spawn(log::make_empty_context(res.name.clone(), res.clone().watch_signal_main(stop_signal_rx.clone())));
+        tokio::spawn(log::make_empty_context(
+            res.name.clone(),
+            res.clone().ttl_main(ttl, stop_signal_rx.clone()),
+        ));
+        tokio::spawn(log::make_empty_context(
+            res.name.clone(),
+            res.clone().watch_signal_main(stop_signal_rx.clone()),
+        ));
         return Ok(res);
     }
 
@@ -192,7 +220,10 @@ impl MicroService{
                 .await;
             let target = match res {
                 Ok(_) => sleep(ttl),
-                Err(err) => { warn!("send ttl message fail {:?}", err); sleep(Duration::from_secs(1))}
+                Err(err) => {
+                    warn!("send ttl message fail {:?}", err);
+                    sleep(Duration::from_secs(1))
+                }
             };
             tokio::select! {
                 _ = target => {},
@@ -204,17 +235,22 @@ impl MicroService{
         let _ = self.etcd.watch_client().shutdown().await;
         // close lease
         let _ = self.etcd.lease().shutdown().await;
-        // remove key on etcd 
-        let _ = self.etcd.kv().delete(DeleteRequest::new(
-            KeyRange::prefix(format!("{}/{}/{}", self.etcd_config.prefix, self.module, self.name)))
-        ).await;
+        // remove key on etcd
+        let _ = self
+            .etcd
+            .kv()
+            .delete(DeleteRequest::new(KeyRange::prefix(format!(
+                "{}/{}/{}",
+                self.etcd_config.prefix, self.module, self.name
+            ))))
+            .await;
         debug!("ttl main is stopped. lease removed");
     }
 
     async fn watch_main(self: Arc<Self>, module: String) -> Result<()> {
         let mut wc = self.etcd.watch_client();
         wc.watch(KeyRange::prefix(self.etcd_config.prefix.clone() + &module))
-        .await?;
+            .await?;
 
         let mut watch_recver = wc.take_receiver().await;
 
@@ -314,12 +350,20 @@ impl MicroService{
         module: String,
         load_balancer: Box<dyn LoadBalancer>,
     ) -> Option<()> {
-        let res = self.map
+        let res = self
+            .map
             .write()
             .await
             .insert(module.to_owned(), load_balancer)
             .map(|_| ());
-        tokio::spawn(log::make_context(0, 0, 0, 0, self.name.clone(), self.watch_main(module)));
+        tokio::spawn(log::make_context(
+            0,
+            0,
+            0,
+            0,
+            self.name.clone(),
+            self.watch_main(module),
+        ));
         res
     }
 
@@ -340,7 +384,7 @@ impl MicroService{
         self.level.clone()
     }
 
-    pub fn service_address(&self) -> String{
+    pub fn service_address(&self) -> String {
         self.address.clone()
     }
 }
@@ -351,6 +395,7 @@ macro_rules! register_module_with_random {
         $ms.listen_module(
             $module.into(),
             Box::new($crate::load_balancer::RandomLoadBalancer::new()),
-        ).await;
+        )
+        .await;
     };
 }

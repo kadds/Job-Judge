@@ -21,7 +21,6 @@ pub struct Comm {
     pub log_type: LogType,
 }
 
-
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Database {
     pub url: String,

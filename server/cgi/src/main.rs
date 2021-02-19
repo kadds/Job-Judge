@@ -1,16 +1,16 @@
 extern crate actix_rt;
-extern crate prost;
 extern crate actix_web;
 extern crate futures;
+extern crate prost;
 #[macro_use]
 extern crate micro_service;
 
-mod rpc;
 mod api;
 mod middleware;
+mod rpc;
 use actix_web::{web, App, HttpServer};
-use micro_service::service::{MicroService, ServiceLevel};
 use micro_service::cfg;
+use micro_service::service::{MicroService, ServiceLevel};
 use std::env::var;
 use std::sync::Arc;
 
@@ -22,13 +22,15 @@ async fn main() -> std::io::Result<()> {
     let port: u16 = 8080;
 
     let config = tokio::fs::read("./config.toml").await.unwrap();
-    let config: micro_service::cfg::MicroServiceCommConfig =
-        toml::from_slice(&config).unwrap();
+    let config: micro_service::cfg::MicroServiceCommConfig = toml::from_slice(&config).unwrap();
 
     match config.comm.log_type {
         cfg::LogType::Tcp => {
-            micro_service::init_tcp_logger(format!("{}:{}", config.comm.log_host, config.comm.log_port));
-        },
+            micro_service::init_tcp_logger(format!(
+                "{}:{}",
+                config.comm.log_host, config.comm.log_port
+            ));
+        }
         cfg::LogType::Console => {
             micro_service::init_console_logger();
         }
@@ -42,14 +44,21 @@ async fn main() -> std::io::Result<()> {
         _ => ServiceLevel::Prod,
     };
 
-    early_log_info!(server_name, "init service info: module {} server {} bind at {}:{}", module, server_name, host, port);
+    early_log_info!(
+        server_name,
+        "init service info: module {} server {} bind at {}:{}",
+        module,
+        server_name,
+        host,
+        port
+    );
     let ms = MicroService::init(
         config.etcd,
         module.to_string(),
         server_name.clone(),
         format!("{}:{}", host, port).parse().unwrap(),
         3,
-        service_level
+        service_level,
     )
     .await
     .unwrap();
@@ -76,20 +85,17 @@ async fn main() -> std::io::Result<()> {
                     .service(api::judge::commit)
                     .service(api::judge::lang_list),
             )
-            .service(
-                web::scope("/comm")
-                    .service(api::comm::ping)
-            )
+            .service(web::scope("/comm").service(api::comm::ping))
             .service(web::scope("/problem").service(api::problem::problem))
             .service(web::scope("/run").service(api::run::run_source))
     })
-    .bind(format!("0.0.0.0:{}", port)).unwrap()
+    .bind(format!("0.0.0.0:{}", port))
+    .unwrap()
     .disable_signals();
 
     let running_server = server.run();
 
-    let ret = 
-    tokio::select! {
+    let ret = tokio::select! {
         ret = running_server => {
             ret
         }

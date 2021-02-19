@@ -1,19 +1,19 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use actix_web::{dev::ServiceRequest, dev::ServiceResponse, Error, dev::Service, dev::Transform, 
-  error};
+use super::super::{token, AppData};
+use actix_web::{
+    dev::Service, dev::ServiceRequest, dev::ServiceResponse, dev::Transform, error, Error,
+};
 use futures::future::{ok, Ready};
 use futures::Future;
-use super::super::{AppData, token};
 use std::sync::Arc;
 
-pub struct Auth {
-}
+pub struct Auth {}
 
 impl Auth {
     pub fn new() -> Auth {
-        Auth { }
+        Auth {}
     }
 }
 
@@ -56,21 +56,22 @@ where
 
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
         let uri = req.uri();
-        let data= &req.app_data::<Arc<AppData>>().unwrap();
+        let data = &req.app_data::<Arc<AppData>>().unwrap();
         let need_token = uri != "/user/login" && !data.config.user.no_verify;
-        let token = req.headers().get("TOKEN").map(
-            |v| v.to_str().unwrap_or("").to_owned());
+        let token = req
+            .headers()
+            .get("TOKEN")
+            .map(|v| v.to_str().unwrap_or("").to_owned());
 
         let fut = self.service.call(req);
         Box::pin(async move {
             if need_token {
-                if let Some(token ) = token {
+                if let Some(token) = token {
                     if !token::is_valid(&token).await {
-                        return Err(error::ErrorUnauthorized("authorize fail"))
+                        return Err(error::ErrorUnauthorized("authorize fail"));
                     }
-                }
-                else {
-                    return Err(error::ErrorUnauthorized("need authorized"))
+                } else {
+                    return Err(error::ErrorUnauthorized("need authorized"));
                 }
             }
             let res = fut.await?;

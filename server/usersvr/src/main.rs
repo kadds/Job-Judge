@@ -1,17 +1,17 @@
 #[macro_use]
 extern crate micro_service;
-extern crate sha2;
 extern crate hex;
+extern crate sha2;
+use micro_service::cfg;
+use micro_service::service::{MicroService, ServiceLevel};
 use std::env::var;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use micro_service::service::{MicroService, ServiceLevel};
-use micro_service::cfg;
-use tonic::transport::Server;
 use tokio;
 use tokio::sync::watch;
 use tokio_stream::wrappers::TcpListenerStream;
-mod table;
+use tonic::transport::Server;
 mod svr;
+mod table;
 
 async fn wait_stop_signal(mut signal: watch::Receiver<u64>) -> () {
     let _ = signal.changed().await;
@@ -22,13 +22,15 @@ async fn wait_stop_signal(mut signal: watch::Receiver<u64>) -> () {
 async fn main() {
     let module = "usersvr";
     let config = tokio::fs::read("./config.toml").await.unwrap();
-    let config: micro_service::cfg::MicroServiceCommConfig =
-        toml::from_slice(&config).unwrap();
+    let config: micro_service::cfg::MicroServiceCommConfig = toml::from_slice(&config).unwrap();
 
     match config.comm.log_type {
         cfg::LogType::Tcp => {
-            micro_service::init_tcp_logger(format!("{}:{}", config.comm.log_host, config.comm.log_port));
-        },
+            micro_service::init_tcp_logger(format!(
+                "{}:{}",
+                config.comm.log_host, config.comm.log_port
+            ));
+        }
         cfg::LogType::Console => {
             micro_service::init_console_logger();
         }
@@ -47,7 +49,14 @@ async fn main() {
         _ => ServiceLevel::Prod,
     };
 
-    early_log_info!(server_name, "init service info: module {} server {} bind at {}:{}", module, server_name, host, port);
+    early_log_info!(
+        server_name,
+        "init service info: module {} server {} bind at {}:{}",
+        module,
+        server_name,
+        host,
+        port
+    );
 
     let ms = MicroService::init(
         config.etcd,
@@ -55,7 +64,7 @@ async fn main() {
         server_name.to_string(),
         format!("{}:{}", host, port).parse().unwrap(),
         3,
-        service_level
+        service_level,
     )
     .await
     .unwrap();
@@ -64,7 +73,8 @@ async fn main() {
     let service = svr::get(&config.database.url, ms).await;
     if let Err(err) = Server::builder()
         .add_service(service)
-        .serve_with_incoming_shutdown(TcpListenerStream::new(listener), wait_stop_signal(stop_rx)).await
+        .serve_with_incoming_shutdown(TcpListenerStream::new(listener), wait_stop_signal(stop_rx))
+        .await
     {
         early_log_error!(server_name, "startup server failed, err {}", err);
     }

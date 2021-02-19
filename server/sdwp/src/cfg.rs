@@ -7,7 +7,6 @@ pub struct EtcdConfig {
     pub prefix: String,
 }
 
-
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UserConfig {
     #[serde(default = "default_username")]
@@ -52,7 +51,7 @@ fn default_no_verify() -> bool {
 impl Default for CommConfig {
     fn default() -> Self {
         CommConfig {
-            port: default_port()
+            port: default_port(),
         }
     }
 }
@@ -66,4 +65,3 @@ impl Default for UserConfig {
         }
     }
 }
-
