@@ -42,14 +42,12 @@ jobs:
 
       - uses: docker/build-push-action@v2.2.2
         with:
-          name: usersvr
           context: out/usersvr
           push: true
-          tags: usersvr:${{github.sha}}, usersvr:latest
+          tags: ${{ secrets.DOCKER_PREFIX }}usersvr:${{ github.sha }}, ${{ secrets.DOCKER_PREFIX }}usersvr:latest
       - uses: docker/build-push-action@v2.2.2
         with:
-          name: sdwp
           context: out/sdwp
           push: true
-          tags: sdwp:${{github.sha}}, sdwp:latest
+          tags: ${{ secrets.DOCKER_PREFIX }}sdwp:${{ github.sha }}, ${{ secrets.DOCKER_PREFIX }}sdwp:latest
 
