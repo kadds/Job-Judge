@@ -21,7 +21,7 @@ use user::rpc::*;
 
 pub struct UserSvrImpl {
     pool: PgPool,
-    micro_service: Arc<MicroService>,
+    _micro_service: Arc<MicroService>,
 }
 
 const CHARS: &str = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=+_";
@@ -254,6 +254,6 @@ pub async fn get(
 
     return UserSvrServer::new(UserSvrImpl {
         pool: pool,
-        micro_service,
+        _micro_service: micro_service,
     });
 }

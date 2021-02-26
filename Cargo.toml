@@ -1,7 +1,9 @@
 [workspace]
 members = [
-    "server/usersvr",
-    "server/cgi",
     "server/micro-service",
+    "server/usersvr",
+    "server/gateway",
     "server/sdwp"
 ]
+[profile.release]
+lto = true

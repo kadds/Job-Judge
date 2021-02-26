@@ -17,8 +17,8 @@ pub enum FetchServiceError {
     DataUnException,
     #[error("not found")]
     NotFound,
-    #[error("unknown data store error")]
-    Unknown,
+    // #[error("unknown data store error")]
+    // Unknown,
 }
 type FetchServiceResult<T> = std::result::Result<T, FetchServiceError>;
 
@@ -68,7 +68,7 @@ struct ServiceMeta {
     pub rpcs: Vec<RpcMeta>,
 }
 
-async fn get_service_meta(address: &str) -> anyhow::Result<ServiceMeta> {
+async fn get_service_meta(_address: &str) -> anyhow::Result<ServiceMeta> {
     Err(anyhow::Error::msg("fail"))
 }
 
@@ -179,7 +179,7 @@ pub async fn get_rpcs(
         }
     };
 
-    let meta = match get_service_meta(&service.address).await {
+    let _meta = match get_service_meta(&service.address).await {
         Ok(v) => v,
         Err(err) => {
             let err = format!("{}", err);
@@ -194,10 +194,10 @@ pub async fn get_rpcs(
 #[get("/rpc")]
 pub async fn get_rpc_info(
     data: web::Data<Arc<AppData>>,
-    rpc: web::Json<RpcPair>,
+    _rpc: web::Json<RpcPair>,
 ) -> impl Responder {
     let etcd_config = &data.config.etcd;
-    let services = match get_servers_info(etcd_config).await {
+    let _services = match get_servers_info(etcd_config).await {
         Ok(v) => v,
         Err(err) => {
             let err = format!("{}", err);
@@ -209,6 +209,6 @@ pub async fn get_rpc_info(
 }
 
 #[post("/request")]
-pub async fn request(req: web::Json<Value>) -> impl Responder {
+pub async fn request(_req: web::Json<Value>) -> impl Responder {
     HttpResponse::Ok().json({})
 }

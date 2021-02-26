@@ -18,7 +18,7 @@ pub static mut MS: Option<Arc<micro_service::service::MicroService>> = None;
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    let module = "cgi";
+    let module = "gateway";
     let port: u16 = 8080;
 
     let config = tokio::fs::read("./config.toml").await.unwrap();
@@ -80,14 +80,7 @@ async fn main() -> std::io::Result<()> {
                     .service(api::user::update_info)
                     .service(api::user::register),
             )
-            .service(
-                web::scope("/judge")
-                    .service(api::judge::commit)
-                    .service(api::judge::lang_list),
-            )
             .service(web::scope("/comm").service(api::comm::ping))
-            .service(web::scope("/problem").service(api::problem::problem))
-            .service(web::scope("/run").service(api::run::run_source))
     })
     .bind(format!("0.0.0.0:{}", port))
     .unwrap()
