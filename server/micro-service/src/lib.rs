@@ -6,23 +6,12 @@ pub mod load_balancer;
 pub mod service;
 pub mod util;
 pub use log::{init_console_logger, init_tcp_logger};
-use serde::{Deserialize, Serialize};
+use std::time::Instant;
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone)]
 // remote server
 pub struct ServerInfo {
-    // ip port string
-    pub address: String,
     pub enabled: bool,
-    pub ctime: i64,
-    pub mtime: i64,
-}
-
-impl ServerInfo {
-    pub fn from_json(json: &str) -> ServerInfo {
-        serde_json::from_str(json).unwrap_or_default()
-    }
-    pub fn to_json(self) -> String {
-        serde_json::to_string(&self).unwrap_or_else(|_| "{}".to_owned())
-    }
+    pub ctime: Instant,
+    pub mtime: Instant,
 }

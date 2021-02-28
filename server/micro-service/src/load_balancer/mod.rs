@@ -5,16 +5,12 @@ use tokio::sync::Mutex;
 use tonic::transport::{Channel, Endpoint};
 pub mod random;
 pub use random::RandomLoadBalancer;
-
-pub enum ServerChangeType {
-    Add,
-    Remove,
-}
+use std::collections::HashSet;
 
 #[async_trait]
 pub trait LoadBalancer: Sync + Send {
-    async fn one_of_channel(&self, uin: u64, flags: u64) -> Option<Channel>;
-    async fn on_update(&mut self, s: Vec<(String, ServerInfo)>, change_type: ServerChangeType);
+    async fn fetch_channel(&self, uin: u64, flags: u64) -> Option<Channel>;
+    async fn on_update(&mut self, load_balancer: HashSet<String>);
     async fn on_rpc_update(&mut self, s: Vec<(String, ServerInfo)>);
 }
 

@@ -2,7 +2,7 @@ fn main() {
     tonic_build::configure()
         .build_server(false)
         .build_client(true)
-        .type_attribute(".", "#[derive(Serialize, Deserialize)]")
+        .type_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)]")
         .compile(
             &[
                 "../proto/runner.proto",

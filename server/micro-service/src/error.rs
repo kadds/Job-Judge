@@ -4,29 +4,16 @@ pub enum Error {
     ConnectionFailed,
     #[error("resource limit error")]
     ResourceLimit,
-    #[error("op error")]
-    OperationError(#[from] etcd_rs::Error),
     #[error("unknown error")]
     Unknown,
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
-
-use crate::log;
-use backtrace::Backtrace;
-
-pub fn panic_hook() {
-    std::panic::set_hook(Box::new(|info| {
-        std::thread::sleep(std::time::Duration::from_secs(1));
-        let bt = Backtrace::new();
-        let payload = info.payload();
-        if let Some(s) = payload.downcast_ref::<&str>() {
-            error!("panic occurred: {:?}\n{:?}", s, bt);
-        } else if let Some(s) = info.payload().downcast_ref::<String>() {
-            error!("panic occurred: {:?}\n{:?}", s, bt);
-        } else {
-            error!("panic occurred.\n{:?}", bt);
-        }
-        std::thread::sleep(std::time::Duration::from_secs(3));
-    }));
+#[derive(thiserror::Error, Debug)]
+pub enum InitConfigError {
+    #[error("parameter is empty")]
+    EmptyConfigField,
+    #[error("parse string parameter fail")]
+    ParseParameterFail,
 }
+
+pub type Result<T> = std::result::Result<T, Error>;

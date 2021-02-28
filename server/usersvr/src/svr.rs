@@ -1,5 +1,5 @@
 use crate::table;
-use micro_service::{log, service::MicroService};
+use micro_service::service::MicroService;
 use rand::prelude::*;
 use sha2::{Digest, Sha256};
 use sqlx::postgres::{PgPool, PgPoolOptions};
@@ -234,15 +234,13 @@ impl UserSvr for UserSvrImpl {
     }
 }
 
-pub async fn get(
-    database_url: &str,
-    micro_service: Arc<MicroService>,
-) -> UserSvrServer<UserSvrImpl> {
+pub async fn get(micro_service: Arc<MicroService>) -> UserSvrServer<UserSvrImpl> {
     let connections: u32 = 10;
+    let database_url = micro_service.comm_database_url();
     let pool = match PgPoolOptions::new()
         .max_connections(connections)
         .connect_timeout(Duration::from_secs(5))
-        .connect(database_url)
+        .connect(&database_url)
         .await
     {
         Ok(v) => v,
@@ -253,7 +251,7 @@ pub async fn get(
     };
 
     return UserSvrServer::new(UserSvrImpl {
-        pool: pool,
+        pool,
         _micro_service: micro_service,
     });
 }

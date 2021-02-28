@@ -1,67 +1,26 @@
-extern crate actix_rt;
-extern crate actix_web;
-extern crate futures;
-extern crate prost;
 #[macro_use]
 extern crate micro_service;
 
 mod api;
 mod middleware;
 mod rpc;
+use actix_rt;
+use actix_web;
 use actix_web::{web, App, HttpServer};
-use micro_service::cfg;
-use micro_service::service::{MicroService, ServiceLevel};
-use std::env::var;
+use micro_service::service::MicroService;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
 pub static mut MS: Option<Arc<micro_service::service::MicroService>> = None;
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
-    let module = "gateway";
-    let port: u16 = 8080;
+    let config = micro_service::cfg::init_from_env().unwrap();
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), config.bind_port);
 
-    let config = tokio::fs::read("./config.toml").await.unwrap();
-    let config: micro_service::cfg::MicroServiceCommConfig = toml::from_slice(&config).unwrap();
+    info!("init service bind at 0.0.0.0:{}", config.bind_port);
 
-    match config.comm.log_type {
-        cfg::LogType::Tcp => {
-            micro_service::init_tcp_logger(format!(
-                "{}:{}",
-                config.comm.log_host, config.comm.log_port
-            ));
-        }
-        cfg::LogType::Console => {
-            micro_service::init_console_logger();
-        }
-    }
-
-    let server_name = var("SERVER_NAME").unwrap();
-    let host = var("HOST_IP").unwrap();
-    let flag: String = var("ENV_FLAG").unwrap_or_default();
-    let service_level = match flag.as_str() {
-        "1" => ServiceLevel::Test,
-        _ => ServiceLevel::Prod,
-    };
-
-    early_log_info!(
-        server_name,
-        "init service info: module {} server {} bind at {}:{}",
-        module,
-        server_name,
-        host,
-        port
-    );
-    let ms = MicroService::init(
-        config.etcd,
-        module.to_string(),
-        server_name.clone(),
-        format!("{}:{}", host, port).parse().unwrap(),
-        3,
-        service_level,
-    )
-    .await
-    .unwrap();
+    let ms = MicroService::init(config).await.unwrap();
 
     unsafe {
         MS = Some(ms.clone());
@@ -82,7 +41,7 @@ async fn main() -> std::io::Result<()> {
             )
             .service(web::scope("/comm").service(api::comm::ping))
     })
-    .bind(format!("0.0.0.0:{}", port))
+    .bind(addr)
     .unwrap()
     .disable_signals();
 
@@ -98,6 +57,6 @@ async fn main() -> std::io::Result<()> {
             Ok(())
         }
     };
-    early_log_info!(server_name, "main cgi loop is stopped");
+    info!("main gateway loop is stopped");
     ret
 }

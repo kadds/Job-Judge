@@ -1,7 +1,6 @@
 use actix_web::{get, post, web, HttpResponse, Responder};
 // use anyhow::Result;
 use super::super::AppData;
-use etcd_rs::{Client, ClientConfig, KeyRange, RangeRequest};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{collections::HashMap, sync::Arc};
@@ -9,12 +8,10 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum FetchServiceError {
-    #[error("connect etcd error")]
-    Connection(#[from] etcd_rs::Error),
     #[error("string format error")]
     Format(#[from] std::string::FromUtf8Error),
-    #[error("broken data")]
-    DataUnException,
+    // #[error("broken data")]
+    // DataUnException,
     #[error("not found")]
     NotFound,
     // #[error("unknown data store error")]
@@ -73,48 +70,9 @@ async fn get_service_meta(_address: &str) -> anyhow::Result<ServiceMeta> {
 }
 
 async fn get_servers_info(
-    config: &crate::cfg::Config,
+    _config: &crate::cfg::Config,
 ) -> FetchServiceResult<HashMap<String, Vec<ServiceDetail>>> {
-    let client = Client::connect(ClientConfig {
-        endpoints: config.etcd_endpoints.to_owned(),
-        auth: Some((
-            config.etcd_username.to_owned(),
-            config.etcd_password.to_owned(),
-        )),
-        tls: None,
-    })
-    .await?;
-
-    let req = RangeRequest::new(KeyRange::prefix(format!("{}/", config.etcd_prefix)));
-
-    let mut rsp = client.kv().range(req).await?;
-
-    let mut map: HashMap<String, Vec<ServiceDetail>> = HashMap::new();
-    info!("take range {}(s)", rsp.count());
-    let vec = rsp.take_kvs();
-    for mut kv in vec {
-        let mut key = String::from_utf8(kv.take_key())?;
-        let value = String::from_utf8(kv.take_value())?;
-        let val = serde_json::Value::from(value.clone());
-
-        key.replace_range(0..config.etcd_prefix.len(), "");
-        let key_split = key.split('/');
-        let mut key_split = key_split.skip(1);
-        let module = key_split.next().ok_or(FetchServiceError::DataUnException)?;
-        let name = key_split.next().ok_or(FetchServiceError::DataUnException)?;
-        // info!("module {} name {}", module, name);
-        let service_detail = ServiceDetail {
-            name: name.to_owned(),
-            address: val["address"].as_str().unwrap_or_default().to_owned(),
-        };
-        debug!("{} {} {}", key, value, service_detail.address);
-        if let Some(v) = map.get_mut(module) {
-            v.push(service_detail);
-        } else {
-            map.insert(module.to_owned(), vec![service_detail]);
-        }
-    }
-    Ok(map)
+    panic!("TODO");
 }
 
 #[get("/list")]

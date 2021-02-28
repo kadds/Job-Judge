@@ -2,14 +2,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Config {
-    #[serde(rename = "etcd_endpoints", skip)]
-    pub etcd_endpoints: Vec<String>,
-    #[serde(rename = "etcd_username", skip)]
-    pub etcd_username: String,
-    #[serde(rename = "etcd_password", skip)]
-    pub etcd_password: String,
-    #[serde(rename = "etcd_prefix", skip)]
-    pub etcd_prefix: String,
+    #[serde(default = "default_dns_template")]
+    pub dns_template: String,
     // user verify
     #[serde(default = "default_username")]
     pub verify_username: String,
@@ -35,5 +29,9 @@ fn default_port() -> u16 {
 }
 
 fn default_no_verify() -> bool {
-    false
+    true
+}
+
+fn default_dns_template() -> String {
+    "{}.local".to_owned()
 }

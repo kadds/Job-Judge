@@ -47,7 +47,7 @@ impl LogSender for ConsoleLogger {
         let mut rx = rx;
         let _ = tx;
         while let Some(log) = rx.recv().await {
-            print!("{}\n", log);
+            println!("{}", log);
         }
     }
 }

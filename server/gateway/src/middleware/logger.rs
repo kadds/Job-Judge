@@ -7,7 +7,7 @@ use actix_web::{
 };
 use futures::future::{ok, Ready};
 use futures::Future;
-use micro_service::{log, service::MicroService, util};
+use micro_service::{service::MicroService, util};
 use std::sync::Arc;
 
 pub struct Logger {
@@ -36,14 +36,14 @@ where
     fn new_transform(&self, service: S) -> Self::Future {
         ok(LoggerMiddleware {
             service,
-            micro_service: self.micro_service.clone(),
+            _micro_service: self.micro_service.clone(),
         })
     }
 }
 
 pub struct LoggerMiddleware<S> {
     service: S,
-    micro_service: Arc<MicroService>,
+    _micro_service: Arc<MicroService>,
 }
 
 impl<S, B> Service for LoggerMiddleware<S>
@@ -63,44 +63,33 @@ where
 
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
         let ts = util::current_ts();
-        let vid = 0;
-        let nid = util::gen_nid();
-        let tid = util::gen_tid();
 
         let fut = self.service.call(req);
-        let server_name = self.micro_service.service_name().clone();
 
-        Box::pin(log::make_context(
-            vid,
-            tid,
-            nid,
-            0,
-            server_name,
-            async move {
-                let res = fut.await?;
-                let req = res.request();
-                let method = req.method();
-                let uri = req.uri();
-                // let path = req.path();
-                let host = req
-                    .peer_addr()
-                    .map_or_else(|| "0.0.0.0:0".to_string(), |v| v.to_string());
-                let cost = util::current_ts() - ts;
-                let status = res.status().as_u16();
-                let len = match res.response().body() {
-                    ResponseBody::Body(_) => 0,
-                    ResponseBody::Other(b) => match b {
-                        Body::Bytes(bytes) => bytes.len() as u64,
-                        Body::Message(mb) => match mb.size() {
-                            BodySize::Sized(s) => s,
-                            _ => 0,
-                        },
+        Box::pin(async move {
+            let res = fut.await?;
+            let req = res.request();
+            let method = req.method();
+            let uri = req.uri();
+            // let path = req.path();
+            let host = req
+                .peer_addr()
+                .map_or_else(|| "0.0.0.0:0".to_string(), |v| v.to_string());
+            let cost = util::current_ts() - ts;
+            let status = res.status().as_u16();
+            let len = match res.response().body() {
+                ResponseBody::Body(_) => 0,
+                ResponseBody::Other(b) => match b {
+                    Body::Bytes(bytes) => bytes.len() as u64,
+                    Body::Message(mb) => match mb.size() {
+                        BodySize::Sized(s) => s,
                         _ => 0,
                     },
-                };
-                click_log!(ts, cost, method, uri, host, status, len);
-                Ok(res)
-            },
-        ))
+                    _ => 0,
+                },
+            };
+            click_log!(ts, cost, method, uri, host, status, len);
+            Ok(res)
+        })
     }
 }
