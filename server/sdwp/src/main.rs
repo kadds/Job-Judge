@@ -22,15 +22,12 @@ pub struct AppData {
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
-    let config = tokio::fs::read("./config.toml").await.unwrap();
-    let config: cfg::Config = toml::from_slice(&config).unwrap();
-
-    let port: u16 = config.comm.port;
+    let config = envy::prefixed("JJ_").from_env().unwrap();
     let app_data = Arc::new(AppData { config });
+    let port: u16 = app_data.config.port;
 
     info!("bind at 0.0.0.0:{}", port);
-
-    let _ = HttpServer::new(move || {
+    HttpServer::new(move || {
         App::new()
             .data(app_data.clone())
             .app_data(app_data.clone())
@@ -47,7 +44,7 @@ async fn main() -> std::io::Result<()> {
     })
     .bind(format!("0.0.0.0:{}", port))?
     .run()
-    .await;
+    .await?;
 
     info!("exit...");
     Ok(())

@@ -73,19 +73,19 @@ async fn get_service_meta(_address: &str) -> anyhow::Result<ServiceMeta> {
 }
 
 async fn get_servers_info(
-    etcd_config: &crate::cfg::EtcdConfig,
+    config: &crate::cfg::Config,
 ) -> FetchServiceResult<HashMap<String, Vec<ServiceDetail>>> {
     let client = Client::connect(ClientConfig {
-        endpoints: etcd_config.endpoints.to_owned(),
+        endpoints: config.etcd_endpoints.to_owned(),
         auth: Some((
-            etcd_config.username.to_owned(),
-            etcd_config.password.to_owned(),
+            config.etcd_username.to_owned(),
+            config.etcd_password.to_owned(),
         )),
         tls: None,
     })
     .await?;
 
-    let req = RangeRequest::new(KeyRange::prefix(format!("{}/", etcd_config.prefix)));
+    let req = RangeRequest::new(KeyRange::prefix(format!("{}/", config.etcd_prefix)));
 
     let mut rsp = client.kv().range(req).await?;
 
@@ -97,7 +97,7 @@ async fn get_servers_info(
         let value = String::from_utf8(kv.take_value())?;
         let val = serde_json::Value::from(value.clone());
 
-        key.replace_range(0..etcd_config.prefix.len(), "");
+        key.replace_range(0..config.etcd_prefix.len(), "");
         let key_split = key.split('/');
         let mut key_split = key_split.skip(1);
         let module = key_split.next().ok_or(FetchServiceError::DataUnException)?;
@@ -119,8 +119,7 @@ async fn get_servers_info(
 
 #[get("/list")]
 pub async fn list(data: web::Data<Arc<AppData>>) -> impl Responder {
-    let etcd_config = &data.config.etcd;
-    let services = match get_servers_info(etcd_config).await {
+    let services = match get_servers_info(&data.config).await {
         Ok(v) => v,
         Err(err) => {
             let err = format!("{}", err);
@@ -161,8 +160,7 @@ pub async fn get_rpcs(
     data: web::Data<Arc<AppData>>,
     service: web::Json<ServicePair>,
 ) -> impl Responder {
-    let etcd_config = &data.config.etcd;
-    let services = match get_servers_info(etcd_config).await {
+    let services = match get_servers_info(&data.config).await {
         Ok(v) => v,
         Err(err) => {
             let err = format!("{}", err);
@@ -196,8 +194,7 @@ pub async fn get_rpc_info(
     data: web::Data<Arc<AppData>>,
     _rpc: web::Json<RpcPair>,
 ) -> impl Responder {
-    let etcd_config = &data.config.etcd;
-    let _services = match get_servers_info(etcd_config).await {
+    let _services = match get_servers_info(&data.config).await {
         Ok(v) => v,
         Err(err) => {
             let err = format!("{}", err);

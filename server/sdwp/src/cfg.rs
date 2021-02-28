@@ -1,35 +1,25 @@
 use serde::{Deserialize, Serialize};
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct EtcdConfig {
-    pub endpoints: Vec<String>,
-    pub username: String,
-    pub password: String,
-    pub prefix: String,
-}
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct UserConfig {
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+pub struct Config {
+    #[serde(rename = "etcd_endpoints", skip)]
+    pub etcd_endpoints: Vec<String>,
+    #[serde(rename = "etcd_username", skip)]
+    pub etcd_username: String,
+    #[serde(rename = "etcd_password", skip)]
+    pub etcd_password: String,
+    #[serde(rename = "etcd_prefix", skip)]
+    pub etcd_prefix: String,
+    // user verify
     #[serde(default = "default_username")]
-    pub username: String,
+    pub verify_username: String,
     #[serde(default = "default_password")]
-    pub password: String,
+    pub verify_password: String,
     #[serde(default = "default_no_verify")]
     pub no_verify: bool,
-}
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct CommConfig {
     #[serde(default = "default_port")]
     pub port: u16,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Config {
-    pub etcd: EtcdConfig,
-    #[serde(default)]
-    pub user: UserConfig,
-    #[serde(default)]
-    pub comm: CommConfig,
 }
 
 fn default_username() -> String {
@@ -46,22 +36,4 @@ fn default_port() -> u16 {
 
 fn default_no_verify() -> bool {
     false
-}
-
-impl Default for CommConfig {
-    fn default() -> Self {
-        CommConfig {
-            port: default_port(),
-        }
-    }
-}
-
-impl Default for UserConfig {
-    fn default() -> Self {
-        UserConfig {
-            username: default_username(),
-            password: default_password(),
-            no_verify: default_no_verify(),
-        }
-    }
 }

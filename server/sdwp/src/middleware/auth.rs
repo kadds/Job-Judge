@@ -57,7 +57,7 @@ where
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
         let uri = req.uri();
         let data = &req.app_data::<Arc<AppData>>().unwrap();
-        let need_token = uri != "/user/login" && !data.config.user.no_verify;
+        let need_token = uri != "/user/login" && !data.config.no_verify;
         let token = req
             .headers()
             .get("TOKEN")
