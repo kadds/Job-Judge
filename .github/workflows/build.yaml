@@ -5,8 +5,7 @@ on:
     branches: [master]
 
 jobs:
-  rust:
-    name: build
+  rust_build:
     runs-on: ubuntu-latest 
     steps:
       - name: checkout
@@ -30,21 +29,49 @@ jobs:
       - name: build
         run: |
           cargo build --release --target=x86_64-unknown-linux-musl
-          cargo test --release --target=x86_64-unknown-linux-musl
       - run: ./post_build.sh
+      - uses: actions/upload-artifact@v2
+      with:
+        name: build-artifact
+        path: out/
 
+  push_usersvr:
+    runs-on: ubuntu-latest
+    needs: rust_build
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+        with:
+          name: build-artifact
+          path: out/
       - name: login docker register
         uses: docker/login-action@v1 
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
       - uses: docker/build-push-action@v2.2.2
         with:
           context: out/usersvr
           push: true
           tags: ${{ secrets.DOCKER_PREFIX }}usersvr:${{ github.sha }}, ${{ secrets.DOCKER_PREFIX }}usersvr:latest
+  push_sdwp:
+    runs-on: ubuntu-latest
+    needs: rust_build
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+        with:
+          name: build-artifact
+          path: out/
+      - name: login docker register
+        uses: docker/login-action@v1 
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
       - uses: docker/build-push-action@v2.2.2
         with:
           context: out/sdwp
