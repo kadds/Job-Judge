@@ -1,8 +1,8 @@
 use crate::cfg::*;
+use log::*;
 
 use crate::error::Result;
 use crate::load_balancer::*;
-use crate::log;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -24,8 +24,7 @@ impl MicroService {
         debug!("start micro-service");
 
         // make struct
-        let (stop_signal, mut stop_signal_rx) = watch::channel(1);
-        let _ = stop_signal_rx.changed().await;
+        let (stop_signal, stop_signal_rx) = watch::channel(1);
 
         let res = Arc::new(MicroService {
             config,

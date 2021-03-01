@@ -1,5 +1,6 @@
 use crate::ServerInfo;
 use async_trait::async_trait;
+use log::*;
 use std::collections::HashMap;
 use tokio::sync::Mutex;
 use tonic::transport::{Channel, Endpoint};

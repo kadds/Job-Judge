@@ -1,4 +1,5 @@
 use crate::error::InitConfigError;
+use log::*;
 
 #[derive(Debug)]
 pub struct Database {
@@ -83,7 +84,7 @@ pub fn init_from_env() -> Result<MicroServiceConfig, InitConfigError> {
         }
     }
 
-    if comm_database_url.is_empty() || module.is_empty() || name.is_empty() || ip.is_empty() {
+    if module.is_empty() || name.is_empty() || ip.is_empty() {
         return Err(InitConfigError::EmptyConfigField);
     }
 

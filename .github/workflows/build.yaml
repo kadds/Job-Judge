@@ -8,8 +8,7 @@ jobs:
   rust_build:
     runs-on: ubuntu-latest 
     steps:
-      - name: checkout
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
       - uses: actions/cache@v2
         with:
           path: |
@@ -19,8 +18,7 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: sudo apt -y install musl-tools upx
-      - name: get toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
@@ -31,22 +29,20 @@ jobs:
           cargo build --release --target=x86_64-unknown-linux-musl
       - run: ./post_build.sh
       - uses: actions/upload-artifact@v2
-      with:
-        name: build-artifact
-        path: out/
+        with:
+          name: build-artifact
+          path: out/
 
   push_usersvr:
     runs-on: ubuntu-latest
     needs: rust_build
     steps:
-      - name: checkout
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
         with:
           name: build-artifact
           path: out/
-      - name: login docker register
-        uses: docker/login-action@v1 
+      - uses: docker/login-action@v1 
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -60,14 +56,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: rust_build
     steps:
-      - name: checkout
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
       - uses: actions/download-artifact@v2
         with:
           name: build-artifact
           path: out/
-      - name: login docker register
-        uses: docker/login-action@v1 
+      - uses: docker/login-action@v1 
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}

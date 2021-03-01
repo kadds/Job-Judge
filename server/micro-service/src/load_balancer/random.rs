@@ -1,5 +1,4 @@
 use super::*;
-use crate::log;
 use crate::ServerInfo;
 use async_trait::async_trait;
 use rand::prelude::*;

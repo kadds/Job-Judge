@@ -1,3 +1,4 @@
+use log::*;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -88,7 +89,7 @@ where
                     _ => 0,
                 },
             };
-            click_log!(ts, cost, method, uri, host, status, len);
+            info!("{} {} {} {} {} {}", method, uri, host, cost, status, len);
             Ok(res)
         })
     }

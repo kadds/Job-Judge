@@ -1,11 +1,8 @@
-#[macro_use]
-pub mod log;
 pub mod cfg;
 pub mod error;
 pub mod load_balancer;
 pub mod service;
 pub mod util;
-pub use log::{init_console_logger, init_tcp_logger};
 use std::time::Instant;
 
 #[derive(Debug, Clone)]

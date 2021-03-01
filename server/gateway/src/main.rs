@@ -1,13 +1,12 @@
-#[macro_use]
-extern crate micro_service;
+use log::*;
 
 mod api;
 mod middleware;
 mod rpc;
-use actix_rt;
-use actix_web;
 use actix_web::{web, App, HttpServer};
+use micro_service::register_module_with_random;
 use micro_service::service::MicroService;
+
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
@@ -15,6 +14,7 @@ pub static mut MS: Option<Arc<micro_service::service::MicroService>> = None;
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
+    env_logger::init();
     let config = micro_service::cfg::init_from_env().unwrap();
     let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), config.bind_port);
 
