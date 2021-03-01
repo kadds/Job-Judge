@@ -33,7 +33,7 @@ impl MicroService {
             stop_signal,
         });
 
-        tokio::spawn(res.clone().watch_signal_main(stop_signal_rx.clone()));
+        tokio::spawn(res.clone().watch_signal_main(stop_signal_rx));
         return Ok(res);
     }
 

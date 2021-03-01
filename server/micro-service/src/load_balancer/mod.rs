@@ -41,6 +41,6 @@ impl ClientCache {
             };
             self.map.lock().await.insert(address.to_string(), channel);
         }
-        self.map.lock().await.get(address).map(|v| v.clone())
+        self.map.lock().await.get(address).cloned()
     }
 }

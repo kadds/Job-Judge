@@ -22,6 +22,12 @@ impl RandomLoadBalancer {
     }
 }
 
+impl Default for RandomLoadBalancer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl LoadBalancer for RandomLoadBalancer {
     async fn on_update(&mut self, servers: HashSet<String>) {
@@ -46,7 +52,7 @@ impl LoadBalancer for RandomLoadBalancer {
                 new_set.insert(address.clone(), new_servers.len());
             }
         }
-        for (address, _) in &self.set {
+        for address in self.set.keys() {
             if !servers.contains(address) {
                 info!("exist server {} exit", address);
             }
