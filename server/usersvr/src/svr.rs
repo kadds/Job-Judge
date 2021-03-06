@@ -1,14 +1,14 @@
 use crate::table;
-use micro_service::service::MicroService;
+use log::*;
 use rand::prelude::*;
 use sha2::{Digest, Sha256};
-use sqlx::postgres::{PgPool, PgPoolOptions};
+use sqlx::postgres::{PgPool, PgPoolOptions, PgRow};
 use sqlx::Row;
 use std::sync::Arc;
 use std::time::Duration;
 use tonic::{Request, Response, Status};
 
-type SqlRow = sqlx::postgres::PgRow;
+type SqlRow = PgRow;
 pub mod user {
     pub mod rpc {
         tonic::include_proto!("user.rpc");
@@ -21,7 +21,7 @@ use user::rpc::*;
 
 pub struct UserSvrImpl {
     pool: PgPool,
-    _micro_service: Arc<MicroService>,
+    _server: Arc<micro_service::Server>,
 }
 
 const CHARS: &str = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=+_";
@@ -74,8 +74,8 @@ impl UserSvr for UserSvrImpl {
         {
             Ok(v) => v.get(0),
             Err(err) => {
-                error!("execute sql failed when insert. err {}", err);
-                return Err(Status::unavailable("execute sql failed"));
+                error!("execute sql failed when insert. error {}", err);
+                return Err(Status::unavailable("query database fail"));
             }
         };
 
@@ -95,8 +95,8 @@ impl UserSvr for UserSvrImpl {
             {
                 Ok(v) => v,
                 Err(err) => {
-                    error!("execute sql failed when select. err {}", err);
-                    return Err(Status::unavailable("execute sql failed"));
+                    error!("execute sql failed when select. error {}", err);
+                    return Err(Status::unavailable("query database fail"));
                 }
             };
 
@@ -131,8 +131,8 @@ impl UserSvr for UserSvrImpl {
             {
                 Ok(v) => v,
                 Err(err) => {
-                    error!("execute sql failed when select. err {}", err);
-                    return Err(Status::unavailable("execute sql failed"));
+                    error!("execute sql failed when select. error {}", err);
+                    return Err(Status::unavailable("query database fail"));
                 }
             };
         if let Some(user) = res {
@@ -164,8 +164,8 @@ impl UserSvr for UserSvrImpl {
             {
                 Ok(v) => v,
                 Err(err) => {
-                    error!("execute sql failed when select. err {}", err);
-                    return Err(Status::unavailable("execute sql failed"));
+                    error!("execute sql failed when select. error {}", err);
+                    return Err(Status::unavailable("query database fail"));
                 }
             };
         if let Some(user) = res {
@@ -185,8 +185,8 @@ impl UserSvr for UserSvrImpl {
                     .execute(&self.pool)
                     .await
             {
-                error!("execute sql failed when select. err {}", err);
-                return Err(Status::unavailable("execute sql failed"));
+                error!("execute sql failed when select. error {}", err);
+                return Err(Status::unavailable("query database fail"));
             }
         }
         Ok(Response::new(UpdateUserRsp {}))
@@ -205,8 +205,8 @@ impl UserSvr for UserSvrImpl {
             {
                 Ok(v) => v,
                 Err(err) => {
-                    error!("execute sql failed when select. err {}", err);
-                    return Err(Status::unavailable("execute sql failed"));
+                    error!("execute sql failed when select. error {}", err);
+                    return Err(Status::unavailable("query database fail"));
                 }
             };
         if let Some(user) = res {
@@ -224,8 +224,8 @@ impl UserSvr for UserSvrImpl {
                     .execute(&self.pool)
                     .await
             {
-                error!("execute sql failed when select. err {}", err);
-                return Err(Status::unavailable("execute sql failed"));
+                error!("execute sql failed when select. error {}", err);
+                return Err(Status::unavailable("query database fail"));
             }
             Ok(Response::new(UpdatePasswordRsp {}))
         } else {
@@ -234,9 +234,9 @@ impl UserSvr for UserSvrImpl {
     }
 }
 
-pub async fn get(micro_service: Arc<MicroService>) -> UserSvrServer<UserSvrImpl> {
+pub async fn get(server: Arc<micro_service::Server>) -> UserSvrServer<UserSvrImpl> {
     let connections: u32 = 10;
-    let database_url = micro_service.comm_database_url();
+    let database_url = server.comm_database_url();
     let pool = match PgPoolOptions::new()
         .max_connections(connections)
         .connect_timeout(Duration::from_secs(5))
@@ -245,13 +245,12 @@ pub async fn get(micro_service: Arc<MicroService>) -> UserSvrServer<UserSvrImpl>
     {
         Ok(v) => v,
         Err(err) => {
-            error!("connect database err {}", err);
-            std::process::exit(-1);
+            panic!("connect database err {}", err);
         }
     };
 
     return UserSvrServer::new(UserSvrImpl {
         pool,
-        _micro_service: micro_service,
+        _server: server,
     });
 }

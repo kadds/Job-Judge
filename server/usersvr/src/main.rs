@@ -1,19 +1,12 @@
-extern crate hex;
-extern crate micro_service;
-extern crate sha2;
-#[macro_use]
-extern crate log;
-
-use micro_service::service::MicroService;
+use log::*;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use tokio;
 use tokio::sync::watch;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Server;
 mod svr;
 mod table;
 
-async fn wait_stop_signal(mut signal: watch::Receiver<u64>) {
+async fn wait_stop_signal(mut signal: watch::Receiver<()>) {
     let _ = signal.changed().await;
 }
 
@@ -28,13 +21,13 @@ async fn main() {
 
     info!("init service bind at 0.0.0.0:{}", config.bind_port);
 
-    let ms = MicroService::init(config).await.unwrap();
+    let ms = micro_service::Server::new(config).await;
 
-    let stop_rx = ms.service_signal();
+    let rx = ms.server_signal();
     let service = svr::get(ms).await;
     if let Err(err) = Server::builder()
         .add_service(service)
-        .serve_with_incoming_shutdown(TcpListenerStream::new(listener), wait_stop_signal(stop_rx))
+        .serve_with_incoming_shutdown(TcpListenerStream::new(listener), wait_stop_signal(rx))
         .await
     {
         error!("startup server failed, error {}", err);

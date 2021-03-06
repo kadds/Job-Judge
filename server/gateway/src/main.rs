@@ -1,16 +1,19 @@
 use log::*;
-
 mod api;
 mod middleware;
+mod util;
+use actix_web::middleware::Logger;
 mod rpc;
 use actix_web::{web, App, HttpServer};
-use micro_service::register_module_with_random;
-use micro_service::service::MicroService;
+use micro_service::Server;
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
-pub static mut MS: Option<Arc<micro_service::service::MicroService>> = None;
+#[derive(Clone)]
+pub struct AppData {
+    server: Arc<micro_service::Server>,
+}
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
@@ -20,17 +23,14 @@ async fn main() -> std::io::Result<()> {
 
     info!("init service bind at 0.0.0.0:{}", config.bind_port);
 
-    let ms = MicroService::init(config).await.unwrap();
-
-    unsafe {
-        MS = Some(ms.clone());
-    }
-    register_module_with_random!(ms.clone(), "usersvr");
-    let mut stop_rx = ms.service_signal();
+    let ms = Server::new(config).await;
+    let mut rx = ms.server_signal();
+    let app_data = AppData { server: ms };
 
     let server = HttpServer::new(move || {
         App::new()
-            .wrap(middleware::logger::Logger::new(ms.clone()))
+            .data(app_data.clone())
+            .wrap(Logger::new("%a  %t-%D %b"))
             .service(
                 web::scope("/user")
                     .service(api::user::login)
@@ -45,13 +45,13 @@ async fn main() -> std::io::Result<()> {
     .unwrap()
     .disable_signals();
 
-    let running_server = server.run();
+    let server = server.run();
 
     let ret = tokio::select! {
-        ret = running_server => {
+        ret = server => {
             ret
         }
-        Ok(_) = stop_rx.changed() => {
+        Ok(_) = rx.changed() => {
             tokio::time::sleep(std::time::Duration::from_millis(800)).await;
             actix_rt::System::current().stop();
             Ok(())

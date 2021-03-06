@@ -1,7 +1,7 @@
 @hostname = localhost
 @port = 8080
 @host = {{hostname}}:{{port}}
-@contentType = application/json
+@json = Content-Type: application/json
 
 @baseUrl = http://{{host}}/user
 
@@ -11,8 +11,8 @@ GET {{baseUrl}}/info HTTP/1.1
 ### 
 // login with username and password
 POST {{baseUrl}}/login HTTP/1.1
+{{json}}
 
-Content-Type: {{contentType}}
 {
     "username": "test",
     "password": "pwd123",
@@ -21,16 +21,16 @@ Content-Type: {{contentType}}
 ### 
 
 POST  {{baseUrl}}/logout HTTP/1.1
+{{json}}
 
-Content-Type: {{contentType}}
 {
 
 }
 
 ###
 PUT {{baseUrl}}/info HTTP/1.1
+{{json}}
 
-Content-Type: {{contentType}}
 {
 
 }

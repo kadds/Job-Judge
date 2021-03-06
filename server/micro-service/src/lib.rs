@@ -1,8 +1,12 @@
+pub mod breaker;
 pub mod cfg;
+pub mod discover;
 pub mod error;
-pub mod load_balancer;
+pub mod server;
 pub mod service;
 pub mod util;
+
+pub use server::Server;
 use std::time::Instant;
 
 #[derive(Debug, Clone)]

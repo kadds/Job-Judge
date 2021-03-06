@@ -1,150 +1,160 @@
 use crate::cfg::*;
+use chrono::NaiveDateTime;
 use log::*;
+use rand::{Rng, SeedableRng};
+use std::{cmp::max, sync::Arc, time::UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    time::{Duration, SystemTime},
+};
+use tokio::sync::mpsc;
+use tokio::sync::{watch, Mutex};
+use tonic::transport::{Channel, Endpoint};
+use tower::discover::Change;
 
-use crate::error::Result;
-use crate::load_balancer::*;
-
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use tokio::signal::unix::{signal, SignalKind};
-use tokio::sync::{watch, RwLock};
-
-type LoadBalancerHashMap = HashMap<String, Box<dyn LoadBalancer>>;
-
-pub struct MicroService {
-    config: MicroServiceConfig,
-    // channel for stop signal
-    stop_signal: watch::Sender<u64>,
-    stop_rx: watch::Receiver<u64>,
-    map: RwLock<LoadBalancerHashMap>,
+pub struct Module {
+    pub(crate) module: String, // module name
+    pub(crate) dns_url: String,
+    pub(crate) services: Mutex<HashMap<SocketAddr, Mutex<Service>>>,
+    pub(crate) channel: Channel,
+    pub(crate) config: Arc<MicroServiceConfig>,
 }
 
-impl MicroService {
-    pub async fn init(config: MicroServiceConfig) -> Result<Arc<MicroService>> {
-        debug!("start micro-service");
-
-        // make struct
-        let (stop_signal, stop_signal_rx) = watch::channel(1);
-
-        let res = Arc::new(MicroService {
+impl Module {
+    pub fn new(
+        module: String,
+        config: Arc<MicroServiceConfig>,
+        rx: watch::Receiver<()>,
+    ) -> Arc<Self> {
+        let dns = config.discover.dns_template.clone().replace("{}", &module);
+        let (channel, sender) = Channel::balance_channel(100);
+        let m = Arc::new(Module {
+            module,
+            dns_url: dns,
+            services: Mutex::new(HashMap::new()),
+            channel,
             config,
-            stop_rx: stop_signal_rx.clone(),
-            map: RwLock::<LoadBalancerHashMap>::new(LoadBalancerHashMap::new()),
-            stop_signal,
         });
-
-        tokio::spawn(res.clone().watch_signal_main(stop_signal_rx));
-        return Ok(res);
+        tokio::spawn(m.clone().discover(rx, sender));
+        m
     }
 
-    async fn module_query(self: Arc<Self>, module: &str) -> std::io::Result<HashSet<String>> {
-        let mut map = HashSet::new();
-        let fmt = self.config.meta.dns_template.clone();
-        let host = fmt.replace("{}", module);
-        let res = tokio::net::lookup_host(host);
-        for i in res.await? {
-            map.insert(i.to_string());
+    async fn build_discover_changes(
+        &self,
+        sender: &mpsc::Sender<Change<SocketAddr, Endpoint>>,
+        changes: Vec<Change<SocketAddr, ()>>,
+    ) {
+        let now = SystemTime::now();
+        for service in self.services.lock().await.values_mut() {
+            service.lock().await.mtime = now;
         }
-
-        Ok(map)
+        for change in changes {
+            match change {
+                Change::Insert(address, _) => {
+                    let endpoint = match Endpoint::from_shared(format!("http://{}", address)) {
+                        Ok(v) => v
+                            .timeout(Duration::from_secs(5))
+                            .concurrency_limit(32)
+                            .tcp_nodelay(true),
+                        Err(err) => {
+                            error!("error uri {}", err);
+                            continue;
+                        }
+                    };
+                    self.services
+                        .lock()
+                        .await
+                        .insert(address, Mutex::new(Service::new(address)));
+                    let _ = sender.send(Change::Insert(address, endpoint)).await;
+                }
+                Change::Remove(address) => {
+                    self.services.lock().await.remove(&address);
+                    let _ = sender.send(Change::Remove(address)).await;
+                }
+            }
+        }
     }
 
-    async fn watch_main(self: Arc<Self>, module: String) -> Result<()> {
-        let mut stop_rx = self.stop_rx.clone();
+    pub async fn discover(
+        self: Arc<Self>,
+        mut rx: watch::Receiver<()>,
+        sender: mpsc::Sender<Change<SocketAddr, Endpoint>>,
+    ) {
+        let mut rng = rand::rngs::StdRng::from_entropy();
         loop {
-            let servers = tokio::select! {
-                Ok(servers) = self.clone().module_query(&module) => {
-                    servers
+            trace!("{} discover loading", self.module);
+            let mut sleep_millis = 10000;
+            let res = match self.config.discover.file.len() {
+                0 => {
+                    sleep_millis = rng.gen_range(-1000..=1000) * 10 + 60000;
+                    self.discover_from_dns().await
                 }
-                Ok(_) = stop_rx.changed() => {
-                    break;
+                _ => self.discover_from_file().await,
+            };
+            match res {
+                Ok(v) => {
+                    self.build_discover_changes(&sender, v).await;
+                }
+                Err(e) => {
+                    error!("discover fail error {}", e);
+                    sleep_millis -= 30000;
                 }
             };
-            let mut map = self.map.write().await;
-            let load_balancer = map.get_mut(&module).unwrap();
-
-            load_balancer.on_update(servers).await;
+            sleep_millis = max(10000, sleep_millis);
+            let sleep = tokio::time::sleep(Duration::from_millis(sleep_millis as u64));
+            let changed = rx.changed();
+            // sleep random interval
+            tokio::select! {
+                _ = sleep => {
+                },
+                Ok(_) = changed => {
+                    debug!("{} discover shutdown", self.module);
+                    break;
+                }
+            }
         }
-
-        debug!("watch ({}) main is stopped", module);
-        Ok(())
     }
 
-    async fn watch_signal_main(self: Arc<Self>, mut stop_rx: watch::Receiver<u64>) {
-        let mut sigint = signal(SignalKind::interrupt()).unwrap();
-        let mut sigquit = signal(SignalKind::quit()).unwrap();
-        let mut sigter = signal(SignalKind::terminate()).unwrap();
-        let signal_type = tokio::select! {
-            _ = sigint.recv() => {"SIGINT"},
-            _= sigquit.recv() => {"SIGQUIT"},
-            _= sigter.recv() => {"SIGTER"},
-            Ok(_) = stop_rx.changed() => {
-                "SIG_UNKNOWN"
-            },
-        };
-        info!("signal {} received. Stopping server", signal_type);
-        let _ = self.stop_signal.send(0);
+    pub fn channel(&self) -> Channel {
+        self.channel.clone()
     }
+}
+pub struct Service {
+    pub(crate) address: SocketAddr,
+    pub(crate) ctime: SystemTime,
+    pub(crate) mtime: SystemTime,
+}
 
-    pub async fn channel(
-        &self,
-        module: &str,
-        uin: u64,
-        flags: u64,
-    ) -> Option<tonic::transport::Channel> {
-        if let Some(load_balancer) = self.map.read().await.get(module) {
-            return load_balancer.fetch_channel(uin, flags).await;
-        }
-        None
-    }
-
-    pub async fn listen_module(
-        self: Arc<Self>,
-        module: String,
-        load_balancer: Box<dyn LoadBalancer>,
-    ) -> Option<()> {
-        let res = self
-            .map
-            .write()
-            .await
-            .insert(module.to_owned(), load_balancer)
-            .map(|_| ());
-        tokio::spawn(self.watch_main(module));
-        res
-    }
-
-    pub fn stop_self(&self) {
-        debug!("sending stop signal");
-        let _ = self.stop_signal.send(0);
-    }
-
-    pub fn service_name(&self) -> String {
-        self.config.meta.name.clone()
-    }
-
-    pub fn service_signal(&self) -> watch::Receiver<u64> {
-        self.stop_rx.clone()
-    }
-
-    pub fn service_level(&self) -> ServiceLevel {
-        self.config.meta.level.clone()
-    }
-
-    pub fn service_address(&self) -> String {
-        self.config.meta.ip.clone()
-    }
-    pub fn comm_database_url(&self) -> String {
-        self.config.comm_database.url.clone()
+impl std::fmt::Display for Service {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} created at {} modified at {}",
+            self.address,
+            NaiveDateTime::from_timestamp(
+                self.ctime
+                    .duration_since(UNIX_EPOCH)
+                    .map_or(0, |v| v.as_secs() as i64),
+                0
+            ),
+            NaiveDateTime::from_timestamp(
+                self.mtime
+                    .duration_since(UNIX_EPOCH)
+                    .map_or(0, |v| v.as_secs() as i64),
+                0
+            ),
+        )
     }
 }
 
-#[macro_export]
-macro_rules! register_module_with_random {
-    ($ms:expr, $module: expr) => {
-        $ms.listen_module(
-            $module.into(),
-            Box::new($crate::load_balancer::RandomLoadBalancer::new()),
-        )
-        .await;
-    };
+impl Service {
+    pub fn new(address: SocketAddr) -> Self {
+        let now = SystemTime::now();
+        Service {
+            address,
+            ctime: now,
+            mtime: now,
+        }
+    }
 }
