@@ -7,5 +7,5 @@ pub mod user {
     }
     tonic::include_proto!("user");
 }
-
-pub use user::rpc::user_svr_client::UserSvrClient;
+use user::rpc::user_svr_client::UserSvrClient;
+micro_service::define_client!(UserSvrClient, UserSvrCli, "usersvr");

@@ -17,7 +17,7 @@ pub struct LoginForm {
 #[post("/login")]
 pub async fn login(data: web::Data<AppData>, form: web::Json<LoginForm>) -> impl Responder {
     let server = data.server.clone();
-    let mut client = UserSvrClient::new(server.channel("usersvr").await);
+    let mut client: UserSvrCli = server.client().await;
     let request = user::rpc::ValidUserReq {
         username: form.username.to_owned(),
         password: form.password.to_owned(),

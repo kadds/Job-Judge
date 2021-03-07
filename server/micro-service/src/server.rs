@@ -47,6 +47,11 @@ impl Server {
         }
     }
 
+    pub async fn client<T: RpcClient<T>>(self: Arc<Self>) -> T {
+        let channel = self.channel(T::name()).await;
+        T::make(channel)
+    }
+
     async fn watch_signal_main(self: Arc<Self>) {
         let sigint = signal::ctrl_c();
         let mut rx = self.rx.clone();
@@ -84,4 +89,24 @@ impl Server {
     pub fn config(&self) -> Arc<MicroServiceConfig> {
         self.config.clone()
     }
+}
+
+pub trait RpcClient<T> {
+    fn name() -> &'static str;
+    fn make(ch: Channel) -> T;
+}
+
+#[macro_export]
+macro_rules! define_client {
+    ($type: ident, $client: ident, $name: tt) => {
+        pub type $client = $type<tonic::transport::Channel>;
+        impl micro_service::server::RpcClient<$client> for $client {
+            fn name() -> &'static str {
+                $name
+            }
+            fn make(ch: tonic::transport::Channel) -> $client {
+                $type::new(ch)
+            }
+        }
+    };
 }
