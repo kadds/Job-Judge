@@ -15,8 +15,8 @@ pub async fn login(data: web::Data<Arc<AppData>>, form: web::Json<LoginForm>) ->
     if form.username == data.config.verify_username && form.password == data.config.verify_password
     {
         let (token, end) = token::create().await;
-        HttpResponse::Ok().json(json!({"token": token, "end": end}))
+        HttpResponse::Ok().json(&json!({"token": token, "end": end}))
     } else {
-        HttpResponse::Ok().json(json!({"err": "password error"}))
+        HttpResponse::Ok().json(&json!({"err": "password error"}))
     }
 }

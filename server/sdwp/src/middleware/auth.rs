@@ -2,9 +2,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use super::super::{token, AppData};
-use actix_web::{
-    dev::Service, dev::ServiceRequest, dev::ServiceResponse, dev::Transform, error, Error,
-};
+use actix_web::{Error, dev::Service, dev::ServiceRequest, dev::ServiceResponse, dev::{MessageBody, Transform}, error};
 use futures::future::{ok, Ready};
 use futures::Future;
 use std::sync::Arc;
@@ -17,13 +15,12 @@ impl Auth {
     }
 }
 
-impl<S, B> Transform<S> for Auth
+impl<S, B> Transform<S, ServiceRequest> for Auth
 where
-    S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    B: MessageBody,
     S::Future: 'static,
-    B: 'static,
 {
-    type Request = ServiceRequest;
     type Response = ServiceResponse<B>;
     type Error = Error;
     type InitError = ();
@@ -39,22 +36,21 @@ pub struct AuthMiddleware<S> {
     service: S,
 }
 
-impl<S, B> Service for AuthMiddleware<S>
+impl<S, B> Service<ServiceRequest> for AuthMiddleware<S>
 where
-    S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    B: MessageBody,
     S::Future: 'static,
-    B: 'static,
 {
-    type Request = ServiceRequest;
     type Response = ServiceResponse<B>;
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
     }
 
-    fn call(&mut self, req: ServiceRequest) -> Self::Future {
+    fn call(&self, req: ServiceRequest) -> Self::Future {
         let uri = req.uri();
         let data = &req.app_data::<Arc<AppData>>().unwrap();
         let need_token = uri != "/user/login" && !data.config.no_verify;

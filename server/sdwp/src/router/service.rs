@@ -82,7 +82,7 @@ pub async fn list(data: web::Data<Arc<AppData>>) -> impl Responder {
         Err(err) => {
             let err = format!("{}", err);
             error!("{}", err);
-            return HttpResponse::Ok().json(json!({ "err_msg": err }));
+            return HttpResponse::Ok().json(&json!({ "err_msg": err }));
         }
     };
 
@@ -95,7 +95,7 @@ pub async fn list(data: web::Data<Arc<AppData>>) -> impl Responder {
         });
     }
 
-    HttpResponse::Ok().json(rsp)
+    HttpResponse::Ok().json(&rsp)
 }
 
 fn get(
@@ -123,7 +123,7 @@ pub async fn get_rpcs(
         Err(err) => {
             let err = format!("{}", err);
             error!("{}", err);
-            return HttpResponse::Ok().json(json!({ "err_msg": err }));
+            return HttpResponse::Ok().json(&json!({ "err_msg": err }));
         }
     };
     let service = match get(&services, service) {
@@ -131,7 +131,7 @@ pub async fn get_rpcs(
         Err(err) => {
             let err = format!("{}", err);
             error!("{}", err);
-            return HttpResponse::Ok().json(json!({ "err_msg": err }));
+            return HttpResponse::Ok().json(&json!({ "err_msg": err }));
         }
     };
 
@@ -140,11 +140,11 @@ pub async fn get_rpcs(
         Err(err) => {
             let err = format!("{}", err);
             error!("{}", err);
-            return HttpResponse::Ok().json(json!({ "err_msg": err }));
+            return HttpResponse::Ok().json(&json!({ "err_msg": err }));
         }
     };
 
-    HttpResponse::Ok().json({})
+    HttpResponse::Ok().json(&{})
 }
 
 #[get("/rpc")]
@@ -157,13 +157,13 @@ pub async fn get_rpc_info(
         Err(err) => {
             let err = format!("{}", err);
             error!("{}", err);
-            return HttpResponse::Ok().json(json!({ "err_msg": err }));
+            return HttpResponse::Ok().json(&json!({ "err_msg": err }));
         }
     };
-    HttpResponse::Ok().json({})
+    HttpResponse::Ok().json(&{})
 }
 
 #[post("/request")]
 pub async fn request(_req: web::Json<Value>) -> impl Responder {
-    HttpResponse::Ok().json({})
+    HttpResponse::Ok().json(&{})
 }
