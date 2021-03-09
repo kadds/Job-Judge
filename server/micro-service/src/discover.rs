@@ -23,7 +23,7 @@ impl Module {
         let mut set = HashSet::new();
         for address in lookup_host(&self.dns_url).await? {
             set.insert(address);
-            if let None = self.services.lock().await.get(&address) {
+            if self.services.lock().await.get(&address).is_none() {
                 changes.push(Change::Insert(address, ()));
             }
         }
@@ -51,7 +51,7 @@ impl Module {
                 .parse()
                 .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
             set.insert(address);
-            if let None = self.services.lock().await.get(&address) {
+            if self.services.lock().await.get(&address).is_none() {
                 changes.push(Change::Insert(address, ()));
             }
         }

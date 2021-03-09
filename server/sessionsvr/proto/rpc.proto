@@ -1,0 +1,47 @@
+syntax = "proto3";
+import "proto/user.proto";
+import "proto/rpc_comm.proto";
+package session.rpc;
+
+message CreateSessionReq { 
+    // sec
+    uint32 timeout = 1;
+    map<string, string> comm_data = 2;
+}
+
+message CreateSessionRsp { string key = 1; }
+
+message GetSessionReq {
+    string key = 1;
+}
+
+message GetSessionRsp {
+    uint32 timeout = 2;
+    map<string, string> comm_data = 3;
+}
+
+message DelaySessionReq {
+    string key = 1;
+    uint32 timeout = 2;
+}
+
+message DelaySessionRsp {
+    string new_key = 1;
+}
+
+message InvalidSessionReq {
+    string key = 1;
+}
+
+message InvalidSessionRsp {
+}
+
+service SessionSvr {
+  rpc create_session(CreateSessionReq) returns (CreateSessionRsp);
+
+  rpc get_session(GetSessionReq) returns (GetSessionRsp);
+
+  rpc delay_session(DelaySessionReq) returns (DelaySessionRsp);
+
+  rpc invalid_session(InvalidSessionReq) returns (InvalidSessionRsp);
+}

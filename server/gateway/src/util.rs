@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::AppData;
 use actix_http::{http::StatusCode, Response, ResponseBuilder};
+use log::info;
 use tonic::{Code, Status};
 
 pub fn build_fail_response(status: Status) -> Response {
@@ -21,6 +22,16 @@ pub fn build_fail_response(status: Status) -> Response {
     ResponseBuilder::new(code).body(msg)
 }
 
-pub async fn is_valid_token(_ctx: Arc<AppData>, _token: String) -> bool {
-    true
+pub async fn is_valid_token(ctx: Arc<AppData>, token: String) -> bool {
+    use crate::rpc::session::rpc::*;
+    use crate::rpc::SessionSvrCli;
+    let mut cli: SessionSvrCli = ctx.server.clone().client().await;
+    let req = GetSessionReq { key: token };
+    match cli.get_session(req).await {
+        Ok(_) => true,
+        Err(e) => {
+            info!("{}", e.message());
+            false
+        }
+    }
 }

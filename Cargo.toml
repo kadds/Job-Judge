@@ -3,6 +3,7 @@ members = [
     "server/micro-service",
     "server/usersvr",
     "server/gateway",
+    "server/sessionsvr",
     "server/sdwp"
 ]
 [profile.release]

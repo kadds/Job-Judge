@@ -7,3 +7,5 @@ function copy_data(){
 }
 copy_data 'usersvr'
 copy_data 'sdwp'
+copy_data 'sessionsvr'
+copy_data 'gateway'

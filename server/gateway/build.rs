@@ -8,8 +8,9 @@ fn main() {
                 "../proto/runner.proto",
                 "../proto/user.proto",
                 "../usersvr/proto/rpc.proto",
+                "../sessionsvr/proto/rpc.proto",
             ],
-            &["../", "../usersvr/proto"],
+            &["../", "../usersvr/proto", "../sessionsvr/proto"],
         )
         .unwrap();
 }

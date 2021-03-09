@@ -35,6 +35,7 @@ pub struct MicroServiceConfig {
     pub bind_port: u16,
     pub discover: Discover,
     pub meta: MicroServiceMetaConfig,
+    pub session_key: String,
 }
 
 pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
@@ -47,6 +48,7 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
     let mut dns_template = "{}.local".to_owned();
     let mut file = "".to_owned();
     let mut ttl = 60;
+    let mut session_key = "".to_owned();
 
     for (k, v) in std::env::vars() {
         match k.as_str() {
@@ -81,6 +83,7 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
                     }
                 }
             }
+            "JJ_SESSION_KEY" => session_key = v,
             _ => {}
         }
     }
@@ -105,5 +108,6 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
             level,
             ip,
         },
+        session_key,
     }))
 }
