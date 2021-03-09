@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use crate::AppData;
 use actix_http::{http::StatusCode, Response, ResponseBuilder};
 use tonic::{Code, Status};
 
@@ -16,4 +19,8 @@ pub fn build_fail_response(status: Status) -> Response {
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     };
     ResponseBuilder::new(code).body(msg)
+}
+
+pub async fn is_valid_token(_ctx: Arc<AppData>, _token: String) -> bool {
+    true
 }

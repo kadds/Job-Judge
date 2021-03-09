@@ -8,7 +8,7 @@ message CreateUserReq {
   string password = 2;
 }
 
-message CreateUserRsp { uint64 uid = 1; }
+message CreateUserRsp { uint64 vid = 1; }
 
 message ValidUserReq {
   string username = 1;

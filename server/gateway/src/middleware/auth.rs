@@ -1,7 +1,7 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use super::super::{token, AppData};
+use crate::{util::is_valid_token, AppData};
 use actix_web::{
     dev::Service,
     dev::ServiceRequest,
@@ -58,8 +58,8 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let uri = req.uri();
-        let data = &req.app_data::<Arc<AppData>>().unwrap();
-        let need_token = uri != "/user/login" && !data.config.no_verify;
+        let ctx = req.app_data::<Arc<AppData>>().unwrap().clone();
+        let need_token = uri != "/user/login" && uri != "/user/register";
         let token = req
             .headers()
             .get("TOKEN")
@@ -69,7 +69,7 @@ where
         Box::pin(async move {
             if need_token {
                 if let Some(token) = token {
-                    if !token::is_valid(&token).await {
+                    if !is_valid_token(ctx, token).await {
                         return Err(error::ErrorUnauthorized("authorize fail"));
                     }
                 } else {

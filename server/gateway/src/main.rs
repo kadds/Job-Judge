@@ -10,7 +10,6 @@ use micro_service::Server;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
-#[derive(Clone)]
 pub struct AppData {
     server: Arc<micro_service::Server>,
 }
@@ -25,18 +24,18 @@ async fn main() -> std::io::Result<()> {
 
     let ms = Server::new(config).await;
     let mut rx = ms.server_signal();
-    let app_data = AppData { server: ms };
 
     let server = HttpServer::new(move || {
+        let app_data = Arc::new(AppData { server: ms.clone() });
         App::new()
-            .data(app_data.clone())
+            .data(app_data)
             .wrap(Logger::new("%a  %t-%D %b"))
+            .wrap(middleware::Auth::new())
             .service(
                 web::scope("/user")
                     .service(api::user::login)
                     .service(api::user::logout)
                     .service(api::user::info)
-                    .service(api::user::update_info)
                     .service(api::user::register),
             )
             .service(web::scope("/comm").service(api::comm::ping))

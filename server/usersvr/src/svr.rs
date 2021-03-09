@@ -79,7 +79,7 @@ impl UserSvr for UserSvrImpl {
             }
         };
 
-        Ok(Response::new(CreateUserRsp { uid: id as u64 }))
+        Ok(Response::new(CreateUserRsp { vid: id as u64 }))
     }
 
     async fn valid_user(
