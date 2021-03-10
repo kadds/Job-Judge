@@ -1,0 +1,12 @@
+syntax = "proto3";
+package id.rpc;
+
+message CreateUidReq { 
+}
+
+message CreateUidRsp { int64 uid = 1; }
+
+
+service IdSvr {
+  rpc create_uid(CreateUidReq) returns (CreateUidRsp);
+}

@@ -4,6 +4,7 @@ members = [
     "server/usersvr",
     "server/gateway",
     "server/sessionsvr",
+    "server/idsvr",
     "server/sdwp"
 ]
 [profile.release]
