@@ -60,7 +60,7 @@ impl UserSvr for UserSvrImpl {
 
         let pwd_crypto = make_password_crypto(&pwd, &salt);
 
-        let id: i32 = match sqlx::query(
+        let id: i64 = match sqlx::query(
             "INSERT INTO user_tbl (username, password, salt, nickname) VALUES 
                 ($1, $2, $3, $4)
         RETURNING id",
@@ -79,7 +79,7 @@ impl UserSvr for UserSvrImpl {
             }
         };
 
-        Ok(Response::new(CreateUserRsp { vid: id as u64 }))
+        Ok(Response::new(CreateUserRsp { id}))
     }
 
     async fn valid_user(
@@ -88,7 +88,7 @@ impl UserSvr for UserSvrImpl {
     ) -> Result<Response<ValidUserRsp>, Status> {
         let req = request.into_inner();
         let res: Option<SqlRow> =
-            match sqlx::query("SELECT vid, password, salt from user_tbl where username=$1")
+            match sqlx::query("SELECT id, password, salt from user_tbl where username=$1")
                 .bind(&req.username)
                 .fetch_optional(&self.pool)
                 .await
@@ -107,13 +107,13 @@ impl UserSvr for UserSvrImpl {
             if pwd_db != pwd_crypto {
                 Ok(Response::new(ValidUserRsp {
                     correct: false,
-                    vid: 0,
+                    id: 0,
                 }))
             } else {
                 let vid: i64 = res.get(0);
                 Ok(Response::new(ValidUserRsp {
                     correct: true,
-                    vid: vid as u64,
+                    id: vid,
                 }))
             }
         } else {
@@ -125,7 +125,7 @@ impl UserSvr for UserSvrImpl {
         let req = request.into_inner();
         let res: Option<table::User> =
             match sqlx::query_as::<_, table::User>("SELECT * from user_tbl where vid=$1")
-                .bind(&(req.vid as i64))
+                .bind(&(req.id))
                 .fetch_optional(&self.pool)
                 .await
             {
@@ -138,7 +138,7 @@ impl UserSvr for UserSvrImpl {
         if let Some(user) = res {
             Ok(Response::new(GetUserRsp {
                 userinfo: Some(user::UserInfo {
-                    vid: user.vid as u64,
+                    id: user.id,
                     username: user.username,
                     nickname: user.nickname,
                     avatar: user.avatar,
@@ -158,7 +158,7 @@ impl UserSvr for UserSvrImpl {
         let userinfo = req.userinfo.unwrap_or_default();
         let res: Option<table::User> =
             match sqlx::query_as::<_, table::User>("SELECT * from user_tbl where vid=$1")
-                .bind(&(userinfo.vid as i64))
+                .bind(&(userinfo.id))
                 .fetch_optional(&self.pool)
                 .await
             {
@@ -181,7 +181,7 @@ impl UserSvr for UserSvrImpl {
                 sqlx::query("UPDATE user_tbl set avatar=$1, set nickname=$2 where vid=$3")
                     .bind(&avatar)
                     .bind(&nickname)
-                    .bind(&user.vid)
+                    .bind(&user.id)
                     .execute(&self.pool)
                     .await
             {
@@ -199,7 +199,7 @@ impl UserSvr for UserSvrImpl {
         let req = request.into_inner();
         let res: Option<table::User> =
             match sqlx::query_as::<_, table::User>("SELECT * from user_tbl where vid=$1")
-                .bind(&(req.vid as i64))
+                .bind(&(req.id as i64))
                 .fetch_optional(&self.pool)
                 .await
             {
@@ -220,7 +220,7 @@ impl UserSvr for UserSvrImpl {
                 sqlx::query("UPDATE user_tbl set password=$1, set salt=$2 where vid=$3")
                     .bind(&pwd_crypto)
                     .bind(&new_salt)
-                    .bind(&user.vid)
+                    .bind(&user.id)
                     .execute(&self.pool)
                     .await
             {

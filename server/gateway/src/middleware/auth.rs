@@ -7,11 +7,11 @@ use actix_web::{
     dev::ServiceRequest,
     dev::ServiceResponse,
     dev::{MessageBody, Transform},
+    web,
     error, Error,
 };
 use futures::future::{ok, Ready};
 use futures::Future;
-use std::sync::Arc;
 
 pub struct Auth {}
 
@@ -58,7 +58,7 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let uri = req.uri();
-        let ctx = req.app_data::<Arc<AppData>>().unwrap().clone();
+        let server = req.app_data::<web::Data<AppData>>().unwrap().server.clone();
         let need_token = uri != "/user/login" && uri != "/user/register";
         let token = req
             .headers()
@@ -69,7 +69,7 @@ where
         Box::pin(async move {
             if need_token {
                 if let Some(token) = token {
-                    if !is_valid_token(ctx, token).await {
+                    if !is_valid_token(server, token).await {
                         return Err(error::ErrorUnauthorized("authorize fail"));
                     }
                 } else {

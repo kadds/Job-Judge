@@ -8,7 +8,7 @@ enum UserType {
 }
 
 message UserInfo {
-  uint64 vid = 1;
+  int64 id = 1;
   string username = 2;
   string nickname = 3;
   string avatar = 4;

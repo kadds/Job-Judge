@@ -15,7 +15,17 @@ POST {{baseUrl}}/login HTTP/1.1
 
 {
     "username": "test",
-    "password": "pwd123",
+    "password": "pwd123"
+}
+
+### 
+
+PUT {{baseUrl}}/register HTTP/1.1
+{{json}}
+
+{
+    "username": "test",
+    "password": "pwd123"
 }
 
 ### 

@@ -29,6 +29,7 @@ struct Content {
     timeout: u32,
     expire_at: u64,
     map: HashMap<String, String>,
+    uid: i64,
 }
 
 fn gen_session_token(key: &[u8], content: Content) -> Result<String, jwt::Error> {
@@ -55,6 +56,7 @@ impl SessionSvr for SessionSvrImpl {
                 .map_or(0, |v| v.as_secs() as u64)
                 + req.timeout as u64,
             map: req.comm_data,
+            uid: req.uid,
         };
         match gen_session_token(&self.key, content) {
             Ok(token) => Ok(Response::new(CreateSessionRsp { key: token })),
@@ -85,6 +87,7 @@ impl SessionSvr for SessionSvrImpl {
             Ok(content) => Ok(Response::new(GetSessionRsp {
                 timeout: content.timeout,
                 comm_data: content.map,
+                uid: content.uid,
             })),
             Err(_) => Err(Status::not_found("session key not found")),
         }

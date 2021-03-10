@@ -7,6 +7,6 @@ macro_rules! check_rpc {
     };
 }
 use actix_web::web;
-type Context = web::Data<std::sync::Arc<crate::AppData>>;
+type Context = web::Data<crate::AppData>;
 pub mod comm;
 pub mod user;

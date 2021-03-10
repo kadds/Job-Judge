@@ -7,6 +7,7 @@ message CreateSessionReq {
     // sec
     uint32 timeout = 1;
     map<string, string> comm_data = 2;
+    int64 uid = 3;
 }
 
 message CreateSessionRsp { string key = 1; }
@@ -18,6 +19,7 @@ message GetSessionReq {
 message GetSessionRsp {
     uint32 timeout = 2;
     map<string, string> comm_data = 3;
+    int64 uid = 4;
 }
 
 message DelaySessionReq {

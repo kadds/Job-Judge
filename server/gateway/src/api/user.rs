@@ -29,7 +29,7 @@ pub struct RegisterForm {
 
 #[derive(Deserialize)]
 pub struct InfoQuery {
-    vid: u64,
+    uid: i64,
 }
 
 #[post("/login")]
@@ -41,14 +41,15 @@ pub async fn login(ctx: Context, form: Json<LoginForm>) -> impl Responder {
         email: form.email.to_owned(),
     };
     let res = check_rpc!(cli.valid_user(req).await);
-    info!("user login with vid {}", res.vid);
+    info!("user login with uid {}", res.id);
     let mut cli: SessionSvrCli = ctx.server.clone().client().await;
     let req = session::rpc::CreateSessionReq {
         timeout: 60 * 60 * 24,
+        uid: res.id,
         comm_data: HashMap::new(),
     };
     let token = check_rpc!(cli.create_session(req).await).key;
-    let json = json!({ "token": token, "vid": res.vid });
+    let json = json!({ "token": token, "uid": res.id });
     HttpResponse::Ok().json(&json)
 }
 
@@ -72,7 +73,7 @@ pub async fn logout(ctx: Context, http: HttpRequest) -> impl Responder {
 #[get("/info")]
 pub async fn info(ctx: Context, form: Query<InfoQuery>) -> impl Responder {
     let mut cli: UserSvrCli = ctx.server.clone().client().await;
-    let req = user::rpc::GetUserReq { vid: form.vid };
+    let req = user::rpc::GetUserReq { id: form.uid };
     let res = check_rpc!(cli.get_user(req).await).userinfo;
     let res = match res {
         Some(v) => v,
@@ -81,7 +82,7 @@ pub async fn info(ctx: Context, form: Query<InfoQuery>) -> impl Responder {
             return HttpResponse::Ok().json(&json);
         }
     };
-    let json = json!({ "vid": res.vid, "avatar": res.avatar, "nickname": res.nickname });
+    let json = json!({ "uid": res.id, "avatar": res.avatar, "nickname": res.nickname });
     HttpResponse::Ok().json(&json)
 }
 
@@ -93,7 +94,7 @@ pub async fn register(ctx: Context, form: Json<RegisterForm>) -> impl Responder 
         password: form.password.to_owned(),
     };
     let res = check_rpc!(cli.create_user(req).await);
-    info!("user register with vid {}", res.vid);
-    let json = json!({"vid": res.vid});
+    info!("user register with uid {}", res.id);
+    let json = json!({"uid": res.id});
     HttpResponse::Ok().json(&json)
 }

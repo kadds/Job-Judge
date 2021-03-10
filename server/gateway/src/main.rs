@@ -26,7 +26,7 @@ async fn main() -> std::io::Result<()> {
     let mut rx = ms.server_signal();
 
     let server = HttpServer::new(move || {
-        let app_data = Arc::new(AppData { server: ms.clone() });
+        let app_data = AppData { server: ms.clone() };
         App::new()
             .data(app_data)
             .wrap(Logger::new("%a  %t-%D %b"))
