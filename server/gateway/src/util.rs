@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use actix_http::{http::StatusCode, Response, ResponseBuilder};
 use log::info;
+use std::sync::Arc;
 use tonic::{Code, Status};
 
 pub fn build_fail_response(status: Status) -> Response {

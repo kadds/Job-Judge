@@ -32,4 +32,3 @@ async fn main() {
         error!("startup server failed, error {}", err);
     }
 }
-

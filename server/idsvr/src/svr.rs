@@ -1,6 +1,4 @@
-use std::{
-    sync::Arc,
-};
+use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
 pub mod id {
@@ -30,11 +28,8 @@ impl IdSvr for IdSvrImpl {
         let uid = gen_uid(self.replica_id).await;
         Ok(Response::new(CreateUidRsp { uid }))
     }
-
 }
 
 pub async fn get(server: Arc<micro_service::Server>) -> IdSvrServer<IdSvrImpl> {
-    return IdSvrServer::new(IdSvrImpl {
-        replica_id: 0,
-    });
+    return IdSvrServer::new(IdSvrImpl { replica_id: 0 });
 }

@@ -7,8 +7,7 @@ use actix_web::{
     dev::ServiceRequest,
     dev::ServiceResponse,
     dev::{MessageBody, Transform},
-    web,
-    error, Error,
+    error, web, Error,
 };
 use futures::future::{ok, Ready};
 use futures::Future;

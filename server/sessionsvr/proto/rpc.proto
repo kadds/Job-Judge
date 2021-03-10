@@ -1,6 +1,4 @@
 syntax = "proto3";
-import "proto/user.proto";
-import "proto/rpc_comm.proto";
 package session.rpc;
 
 message CreateSessionReq { 
