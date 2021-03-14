@@ -11,7 +11,15 @@ message CreateIdReq {
 
 message CreateIdRsp { int64 id = 1; }
 
+message CreateSeqReq {
+}
+
+message CreateSeqRsp {
+  int64 id = 1;
+}
+
 
 service IdSvr {
   rpc create_id(CreateIdReq) returns (CreateIdRsp);
+  rpc create_seq(CreateSeqReq) returns (CreateSeqRsp);
 }

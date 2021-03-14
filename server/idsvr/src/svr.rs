@@ -1,11 +1,14 @@
 use crate::table;
 use log::*;
 use sqlx::postgres::{PgPool, PgPoolOptions};
-use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::Arc;
 use std::time::Duration;
+use std::{
+    sync::atomic::{AtomicI32, AtomicI64, Ordering},
+    time::{SystemTime, SystemTimeError, UNIX_EPOCH},
+};
 use tokio::{
-    sync::{broadcast, oneshot, watch, Mutex},
+    sync::{broadcast, Mutex},
     time::{sleep, timeout},
 };
 use tonic::{Request, Response, Status};
@@ -19,8 +22,17 @@ mod id {
 use id::rpc::id_svr_server::{IdSvr, IdSvrServer};
 use id::rpc::*;
 
-const MAX_REPLICA_ID: u32 = 128;
 const MAX_BIZ_ID: i32 = 128;
+
+const SEQ_BIT: u8 = 13;
+const SEQ_RIGHT: u8 = 0;
+const REPLICA_BIT: u8 = 9;
+const REPLICA_RIGHT: u8 = SEQ_RIGHT + SEQ_BIT;
+const TIME_BIT: u8 = 41;
+const TIME_RIGHT: u8 = REPLICA_RIGHT + REPLICA_BIT;
+
+const MAX_REPLICA_ID: u32 = 1 << REPLICA_BIT;
+const START_TIMESTAMP: u64 = 1600000000;
 
 #[derive(thiserror::Error, Debug)]
 pub enum GenIdError {
@@ -180,7 +192,7 @@ async fn gen_id<T: DataSource>(
             tokio::spawn(prefetch(source.clone(), biz, vec.clone()));
         }
         if pos >= max {
-            info!("overflow {} {}", max, pos);
+            trace!("overflow {} {}", max, pos);
             let mut rx = u.tx.subscribe();
             // try pick the future after prefetching
             let _ = timeout(Duration::from_millis(0), rx.recv()).await;
@@ -204,6 +216,7 @@ async fn gen_id<T: DataSource>(
             ))
             .await;
         }
+        trace!("gen_id try next times");
     }
     Err(GenIdError::ManyTimes)
 }
@@ -249,10 +262,99 @@ impl IdAllocInfo {
     }
 }
 
+struct SnowflakeData {
+    last_val: AtomicI64,
+    replica_id: u32,
+}
+
+impl SnowflakeData {
+    pub fn new(replica_id: u32) -> Self {
+        SnowflakeData {
+            last_val: AtomicI64::new(0),
+            replica_id,
+        }
+    }
+}
+
 pub struct IdSvrImpl<T> {
     data_source: Arc<T>,
-    replica_id: u32,
     res: Arc<[IdAllocInfo]>,
+    data: SnowflakeData,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum GenSnowflakeSeqError {
+    #[error("time cast fail")]
+    TimeCastFail(#[from] SystemTimeError),
+    #[error("out of range")]
+    OutOfRange,
+    #[error("time travel")]
+    TimeTravel,
+    #[error("many times try fail")]
+    ManyTimes,
+}
+
+const fn from_bits(v: i64, bits: u8, right: u8) -> i64 {
+    (v >> right) & ((1 << bits) - 1)
+}
+
+//
+//  | 41 bits time(ms) | 9 bits replica_id | 13 bits seq |
+//
+async fn gen_snowflake_seq(data: &SnowflakeData) -> Result<i64, GenSnowflakeSeqError> {
+    const TRY_MAX_TIMES: usize = 50;
+    let e = UNIX_EPOCH + Duration::from_secs(START_TIMESTAMP);
+    for times in 0..TRY_MAX_TIMES {
+        let delta = match SystemTime::now().duration_since(e) {
+            Ok(v) => v.as_millis() as i64,
+            Err(err) => {
+                return Err(GenSnowflakeSeqError::TimeCastFail(err));
+            }
+        };
+
+        let last = data.last_val.load(Ordering::SeqCst);
+        let last_delta = from_bits(last, TIME_BIT, TIME_RIGHT);
+        let last_seq = from_bits(last, SEQ_BIT, SEQ_RIGHT);
+        let d = last_delta - delta;
+        if d == 0 {
+            if last_seq < (1 << SEQ_BIT) - 1 {
+                if cas!(data.last_val, last, last + 1) {
+                    return Ok(last + 1);
+                }
+            } else {
+                trace!("sold out");
+                // seq sold out, next millis
+                sleep(Duration::from_millis(1)).await;
+            }
+        } else if d > 0 {
+            // time travel appear, 100ms maximum
+            if d <= 100 {
+                trace!("time travel");
+                sleep(Duration::from_millis(d as u64)).await;
+            } else {
+                return Err(GenSnowflakeSeqError::TimeTravel);
+            }
+        } else {
+            // d < 0
+            // last_delta < delta
+            if delta >= (1 << TIME_BIT) {
+                return Err(GenSnowflakeSeqError::OutOfRange);
+            }
+            let mut result = delta << TIME_RIGHT;
+            result = result | ((data.replica_id as i64) << REPLICA_RIGHT);
+            if cas!(data.last_val, last, result) {
+                return Ok(result);
+            }
+        }
+        if times >= TRY_MAX_TIMES / 2 {
+            sleep(Duration::from_millis(
+                1 * (times - TRY_MAX_TIMES / 2 + 1) as u64,
+            ))
+            .await;
+        }
+        trace!("gen_snowflake try next times");
+    }
+    Err(GenSnowflakeSeqError::ManyTimes)
 }
 
 #[tonic::async_trait]
@@ -269,10 +371,23 @@ where
             Ok(v) => v,
             Err(err) => {
                 error!("execute sql failed when select. error {}", err);
-                return Err(Status::unavailable("query database fail"));
+                return Err(Status::unavailable("fail"));
             }
         };
         Ok(Response::new(CreateIdRsp { id }))
+    }
+    async fn create_seq(
+        &self,
+        _request: Request<CreateSeqReq>,
+    ) -> Result<Response<CreateSeqRsp>, Status> {
+        let id = match gen_snowflake_seq(&self.data).await {
+            Ok(v) => v,
+            Err(err) => {
+                error!("gen snowflake seq fail. error {}", err);
+                return Err(Status::unavailable("fail"));
+            }
+        };
+        Ok(Response::new(CreateSeqRsp { id }))
     }
 }
 
@@ -303,8 +418,8 @@ pub async fn get(server: Arc<micro_service::Server>) -> IdSvrServer<IdSvrImpl<Da
 
     return IdSvrServer::new(IdSvrImpl {
         data_source: Arc::new(DatabaseDataSource::new(pool)),
-        replica_id,
         res,
+        data: SnowflakeData::new(replica_id),
     });
 }
 
@@ -313,10 +428,20 @@ mod tests {
 
     use super::*;
     use crate::table;
-    use std::sync::Arc;
+    use std::{collections::HashSet, sync::Arc};
+    const THREADS: u32 = 10;
+    const CNT: u32 = 1000;
+
+    #[test]
+    fn from_bits_test() {
+        assert_eq!(from_bits(0b100101, 2, 0), 0b1);
+        assert_eq!(from_bits(0b100101, 3, 2), 0b1);
+        assert_eq!(from_bits(0b111101, 2, 3), 0b11);
+        assert_eq!(from_bits(0b100101, 1, 63), 0);
+    }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn try_id_async() {
+    async fn try_id_out_of_range() {
         let _ = env_logger::try_init();
         let s = Arc::new(MemoryDataSource::new());
         let mut map = s.map.lock().await;
@@ -343,5 +468,47 @@ mod tests {
         assert!(gen_id(s.clone(), 0, b.clone()).await.is_err());
         assert!(gen_id(s.clone(), 0, b.clone()).await.is_err());
         assert!(gen_id(s.clone(), 0, b.clone()).await.is_err());
+    }
+
+    fn valid_seqs(seqs: &Vec<(i64, u32)>, start_ts: SystemTime, end_ts: SystemTime) {
+        let mut map = HashSet::<i64>::new();
+        let e = UNIX_EPOCH + Duration::from_secs(START_TIMESTAMP);
+        let start_ts = start_ts.duration_since(e).unwrap().as_millis() as i64;
+        let end_ts = end_ts.duration_since(e).unwrap().as_millis() as i64;
+        for (seq, replica_id) in seqs {
+            let v = *seq;
+            assert!(map.insert(v));
+            let delta = from_bits(v, TIME_BIT, TIME_RIGHT);
+            let id = from_bits(v, REPLICA_BIT, REPLICA_RIGHT) as u32;
+            assert_eq!(id, *replica_id);
+            assert!(delta >= start_ts && delta <= end_ts);
+        }
+    }
+
+    async fn gen_fn(times: u32, vec: Arc<Mutex<Vec<(i64, u32)>>>, data: SnowflakeData) {
+        let mut tmp = vec![];
+        for _ in 0..times {
+            tmp.push(gen_snowflake_seq(&data).await.unwrap());
+        }
+        let mut vec = vec.lock().await;
+        for v in tmp {
+            vec.push((v, data.replica_id));
+        }
+    }
+    #[tokio::test(flavor = "multi_thread", worker_threads = 5)]
+    async fn try_seq_multi_thread() {
+        let _ = env_logger::try_init();
+        let start_ts = SystemTime::now();
+        let vec = Arc::new(Mutex::new(Vec::<(i64, u32)>::new()));
+        let mut f = Vec::new();
+        for replica_id in 0..THREADS {
+            let data = SnowflakeData::new(replica_id);
+            f.push(tokio::spawn(gen_fn(CNT as u32, vec.clone(), data)));
+        }
+        let _ = futures::future::join_all(f).await;
+        let end_ts = SystemTime::now();
+        let v = vec.lock().await;
+        assert_eq!(v.len(), (CNT * THREADS) as usize);
+        valid_seqs(&v, start_ts, end_ts);
     }
 }
