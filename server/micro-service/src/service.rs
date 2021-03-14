@@ -85,12 +85,12 @@ impl Module {
         loop {
             trace!("{} discover loading", self.module);
             let mut sleep_millis = 10000;
-            let res = match self.config.discover.file.len() {
-                0 => {
+            let res = match &self.config.discover.file {
+                None => {
                     sleep_millis = rng.gen_range(-1000..=1000) * 10 + 60000;
                     self.discover_from_dns().await
                 }
-                _ => self.discover_from_file().await,
+                Some(f) => self.discover_from_file(f).await,
             };
             match res {
                 Ok(v) => {

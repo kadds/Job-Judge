@@ -1,12 +1,17 @@
 syntax = "proto3";
 package id.rpc;
 
-message CreateUidReq { 
+enum IdBizType {
+  uid = 0;
 }
 
-message CreateUidRsp { int64 uid = 1; }
+message CreateIdReq { 
+  IdBizType biz = 1;
+}
+
+message CreateIdRsp { int64 id = 1; }
 
 
 service IdSvr {
-  rpc create_uid(CreateUidReq) returns (CreateUidRsp);
+  rpc create_id(CreateIdReq) returns (CreateIdRsp);
 }

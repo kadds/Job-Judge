@@ -34,10 +34,13 @@ impl Module {
         }
         Ok(changes)
     }
-    pub(crate) async fn discover_from_file(&self) -> Result<Vec<Change<SocketAddr, ()>>> {
+    pub(crate) async fn discover_from_file(
+        &self,
+        file: &str,
+    ) -> Result<Vec<Change<SocketAddr, ()>>> {
         let mut changes = Vec::<Change<SocketAddr, ()>>::new();
         let mut set = HashSet::new();
-        let config_json = read(&self.config.discover.file).await?;
+        let config_json = read(file).await?;
         let config: DiscoverConfig = serde_json::from_slice(&config_json)?;
         let module = match config.modules.get(&self.module) {
             Some(v) => v,

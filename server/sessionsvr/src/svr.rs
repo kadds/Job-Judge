@@ -71,7 +71,7 @@ impl SessionSvr for SessionSvrImpl {
         let req = request.into_inner();
         {
             let mut map = self.black_map.lock().await;
-            if let Some((_, v)) = map.get_key_value(&req.key) {
+            if let Some(v) = map.get(&req.key) {
                 // delete timeout key
                 if *v
                     <= SystemTime::now()
@@ -137,6 +137,12 @@ impl SessionSvr for SessionSvrImpl {
 pub async fn get(server: Arc<micro_service::Server>) -> SessionSvrServer<SessionSvrImpl> {
     return SessionSvrServer::new(SessionSvrImpl {
         black_map: Mutex::new(HashMap::new()),
-        key: server.config().session_key.as_bytes().to_vec(),
+        key: server
+            .config()
+            .session_key
+            .clone()
+            .expect("not found session key")
+            .as_bytes()
+            .to_vec(),
     });
 }

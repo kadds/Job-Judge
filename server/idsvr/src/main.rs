@@ -4,6 +4,7 @@ use tokio::sync::watch;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Server;
 mod svr;
+mod table;
 
 async fn wait_stop_signal(mut signal: watch::Receiver<()>) {
     let _ = signal.changed().await;

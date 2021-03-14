@@ -83,9 +83,6 @@ impl Server {
     pub fn server_address(&self) -> String {
         self.config.meta.ip.clone()
     }
-    pub fn comm_database_url(&self) -> String {
-        self.config.comm_database.url.clone()
-    }
     pub fn config(&self) -> Arc<MicroServiceConfig> {
         self.config.clone()
     }

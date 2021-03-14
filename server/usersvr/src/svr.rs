@@ -236,7 +236,12 @@ impl UserSvr for UserSvrImpl {
 
 pub async fn get(server: Arc<micro_service::Server>) -> UserSvrServer<UserSvrImpl> {
     let connections: u32 = 10;
-    let database_url = server.comm_database_url();
+    let database_url = server
+        .config()
+        .comm_database
+        .url
+        .clone()
+        .expect("not found comm database url");
     let pool = match PgPoolOptions::new()
         .max_connections(connections)
         .connect_timeout(Duration::from_secs(5))
