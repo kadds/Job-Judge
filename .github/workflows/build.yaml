@@ -42,7 +42,7 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: build-artifact
-          path: out/
+      - run: tar -xvf out.tar
       - uses: docker/login-action@v1 
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: build-artifact
-          path: out/
+      - run: tar -xvf out.tar
       - uses: docker/login-action@v1 
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
@@ -80,7 +80,7 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: build-artifact
-          path: out/
+      - run: tar -xvf out.tar
       - uses: docker/login-action@v1 
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
@@ -99,7 +99,7 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: build-artifact
-          path: out/
+      - run: tar -xvf out.tar
       - uses: docker/login-action@v1 
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
@@ -118,7 +118,7 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: build-artifact
-          path: out/
+      - run: tar -xvf out.tar
       - uses: docker/login-action@v1 
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
