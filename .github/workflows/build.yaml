@@ -28,10 +28,11 @@ jobs:
         run: |
           cargo build --release --target=x86_64-unknown-linux-musl
       - run: ./post_build.sh
+      - run: tar -cvf out.tar out/
       - uses: actions/upload-artifact@v2
         with:
           name: build-artifact
-          path: out/
+          path: out.tar
 
   push_usersvr:
     runs-on: ubuntu-latest
