@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Release.Name}}-cfg
+  namespace: {{ .Release.Namespace }}
+data: 
+  JJ_DISCOVER_DNS_TEMPLATE: "{}.local"
+  JJ_COMM_DATABASE_URL: {{ .Values.databaseUrl }}
+  JJ_SESSION_KEY: {{ .Values.sessionKey }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{.Release.Name}}-secret
+  namespace: {{ .Release.Namespace }}
+data: 
+

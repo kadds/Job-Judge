@@ -1,0 +1,4 @@
+apiVersion: v1
+name: job-judge
+version: 0.0.1
+description: A helm chart for job-judge

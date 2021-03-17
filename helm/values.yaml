@@ -1,0 +1,22 @@
+global:
+  image: 
+    prefix: docker.io/kadds
+    tag: latest
+    pullPolicy: IfNotPresent
+    pullSecrets: 
+
+service:
+  port: 8080
+  nodePort: 8080
+  replicas: 2
+
+resources: 
+  limits:
+    cpu: 1
+    memory: 512Mi
+  requests:
+    cpu: 50m
+    memory: 32Mi
+
+databaseUrl: postgresql://localhost/
+sessionKey: sessionKey

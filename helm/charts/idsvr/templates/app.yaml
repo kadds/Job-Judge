@@ -1,0 +1,3 @@
+{{- template "stateful.deployment" . }}
+---
+{{- template "stateful.service" . }}
