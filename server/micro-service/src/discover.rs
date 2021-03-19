@@ -18,10 +18,13 @@ struct DiscoverConfig {
     pub modules: HashMap<String, ModuleConfig>,
 }
 impl Module {
-    pub(crate) async fn discover_from_dns(&self) -> Result<Vec<Change<SocketAddr, ()>>> {
+    pub(crate) async fn discover_from_dns(
+        &self,
+        dns_url: &str,
+    ) -> Result<Vec<Change<SocketAddr, ()>>> {
         let mut changes = Vec::<Change<SocketAddr, ()>>::new();
         let mut set = HashSet::new();
-        for address in lookup_host(&self.dns_url).await? {
+        for address in lookup_host(dns_url).await? {
             set.insert(address);
             if self.services.lock().await.get(&address).is_none() {
                 changes.push(Change::Insert(address, ()));

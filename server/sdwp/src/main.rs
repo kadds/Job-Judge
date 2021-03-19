@@ -1,17 +1,10 @@
-extern crate actix_rt;
-extern crate actix_web;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate lazy_static;
-
 mod cfg;
 mod middleware;
 mod router;
 mod token;
-use std::sync::Arc;
-
 use actix_web::{middleware::Logger, web, App, HttpServer};
+use log::*;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct AppData {
@@ -24,7 +17,7 @@ async fn main() -> std::io::Result<()> {
 
     let config = envy::prefixed("JJ_").from_env().unwrap();
     let app_data = Arc::new(AppData { config });
-    let port: u16 = app_data.config.port;
+    let port: u16 = app_data.config.bind_port;
 
     info!("bind at 0.0.0.0:{}", port);
     HttpServer::new(move || {

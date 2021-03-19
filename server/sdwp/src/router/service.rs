@@ -1,6 +1,7 @@
 use actix_web::{get, post, web, HttpResponse, Responder};
 // use anyhow::Result;
 use super::super::AppData;
+use log::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{collections::HashMap, sync::Arc};

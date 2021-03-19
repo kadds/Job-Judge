@@ -101,7 +101,10 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
             match t.parse() {
                 Ok(v) => replica_id = Some(v),
                 Err(e) => {
-                    debug!("parse replica id from server name {} fail, error: {}", name, e);
+                    debug!(
+                        "parse replica id from server name {} fail, error: {}",
+                        name, e
+                    );
                 }
             }
         }

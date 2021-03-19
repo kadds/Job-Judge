@@ -4,9 +4,9 @@ metadata:
   name: {{.Release.Name}}-cfg
   namespace: {{ .Release.Namespace }}
 data: 
-  JJ_DISCOVER_DNS_TEMPLATE: "{}.local"
   JJ_COMM_DATABASE_URL: {{ .Values.databaseUrl }}
   JJ_SESSION_KEY: {{ .Values.sessionKey }}
+  JJ_DISCOVER_DNS_TEMPLATE: "{}.{{ .Release.Namespace }}.svc.{{ .Values.cluster  }}"
   RUST_LOG: {{ .Values.logLevel }}
 ---
 apiVersion: v1

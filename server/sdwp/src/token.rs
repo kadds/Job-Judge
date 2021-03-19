@@ -1,3 +1,4 @@
+use lazy_static::*;
 use rand::prelude::*;
 use std::collections::HashMap;
 use std::time::SystemTime;

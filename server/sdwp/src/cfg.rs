@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Config {
     #[serde(default = "default_dns_template")]
-    pub dns_template: String,
+    pub discover_dns_template: String,
     // user verify
     #[serde(default = "default_username")]
     pub verify_username: String,
@@ -13,7 +13,7 @@ pub struct Config {
     pub no_verify: bool,
 
     #[serde(default = "default_port")]
-    pub port: u16,
+    pub bind_port: u16,
 }
 
 fn default_username() -> String {

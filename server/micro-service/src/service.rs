@@ -83,14 +83,17 @@ impl Module {
     ) {
         let mut rng = rand::rngs::StdRng::from_entropy();
         loop {
-            trace!("{} discover loading", self.module);
             let mut sleep_millis = 10000;
             let res = match &self.config.discover.file {
                 None => {
+                    trace!("{} discover loading from dns {}", self.module, self.dns_url);
                     sleep_millis = rng.gen_range(-1000..=1000) * 10 + 60000;
-                    self.discover_from_dns().await
+                    self.discover_from_dns(&self.dns_url).await
                 }
-                Some(f) => self.discover_from_file(f).await,
+                Some(f) => {
+                    trace!("{} discover loading from file {}", self.module, f);
+                    self.discover_from_file(f).await
+                }
             };
             match res {
                 Ok(v) => {

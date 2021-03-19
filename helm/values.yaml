@@ -21,3 +21,4 @@ resources:
 databaseUrl: postgresql://localhost/
 sessionKey: sessionKey
 logLevel: Info
+cluster: cluster.local
