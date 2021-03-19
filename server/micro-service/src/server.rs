@@ -56,11 +56,23 @@ impl Server {
         let sigint = signal::ctrl_c();
         let mut rx = self.rx.clone();
         let changed = rx.changed();
-        let signal_type = tokio::select! {
-            _ = sigint => {"SIGINT"},
-            Ok(_) = changed => {
-                "SIG_UNKNOWN"
-            },
+        let signal_type = if cfg!(unix) {
+            let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate()).unwrap();
+            let sigterm = sigterm.recv();
+            tokio::select! {
+                _ = sigint => {"SIGINT"},
+                _ = sigterm => {"SIGTERM"},
+                Ok(_) = changed => {
+                    "SIG_UNKNOWN"
+                },
+            }
+        } else {
+            tokio::select! {
+                _ = sigint => {"SIGINT"},
+                Ok(_) = changed => {
+                    "SIG_UNKNOWN"
+                },
+            }
         };
         info!("signal {} received. Stopping server", signal_type);
         let _ = self.tx.send(());

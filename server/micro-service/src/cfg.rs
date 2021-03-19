@@ -96,6 +96,16 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
             _ => {}
         }
     }
+    if replica_id.is_none() {
+        if let Some(t) = name.split('-').last() {
+            match t.parse() {
+                Ok(v) => replica_id = Some(v),
+                Err(e) => {
+                    debug!("parse replica id from server name {} fail, error: {}", name, e);
+                }
+            }
+        }
+    }
 
     if module.is_empty() || name.is_empty() || ip.is_empty() {
         return Err(InitConfigError::EmptyConfigField);

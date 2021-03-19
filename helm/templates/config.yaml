@@ -7,6 +7,7 @@ data:
   JJ_DISCOVER_DNS_TEMPLATE: "{}.local"
   JJ_COMM_DATABASE_URL: {{ .Values.databaseUrl }}
   JJ_SESSION_KEY: {{ .Values.sessionKey }}
+  RUST_LOG: {{ .Values.logLevel }}
 ---
 apiVersion: v1
 kind: Secret

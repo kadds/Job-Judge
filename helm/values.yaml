@@ -1,6 +1,6 @@
 global:
   image: 
-    prefix: docker.io/kadds
+    prefix: docker.io/kadds/
     tag: latest
     pullPolicy: IfNotPresent
     pullSecrets: 
@@ -20,3 +20,4 @@ resources:
 
 databaseUrl: postgresql://localhost/
 sessionKey: sessionKey
+logLevel: Info

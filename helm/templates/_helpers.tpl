@@ -1,6 +1,6 @@
 {{- define "comm.container" }}
 - name: {{ .Chart.Name }}
-  image: {{ .Values.global.image.prefix }}{{ .Chart.Name }}{{ .Values.global.image.tag }}
+  image: {{ .Values.global.image.prefix }}{{ .Chart.Name }}:{{ .Values.global.image.tag }}
   imagePullPolicy: {{ .Values.global.image.pullPolicy }}
   {{- with .Values.resources }}
   resources: 
@@ -10,7 +10,7 @@
     - name: JJ_SERVICE_IP
       valueFrom:
         fieldRef:
-          fieldPath: status.podIp
+          fieldPath: status.podIP
     - name: JJ_SERVICE_NAME
       valueFrom:
         fieldRef:
