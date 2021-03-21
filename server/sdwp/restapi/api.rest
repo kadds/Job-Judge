@@ -27,3 +27,11 @@ Token:
 
 {"module_name": "",
 "server_name": ""}
+
+### 
+GET {{base}}service/health HTTP/1.1
+Token: 
+{{contentType}}
+
+{"module_name": "",
+"server_name": ""}

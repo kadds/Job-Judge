@@ -7,17 +7,20 @@ use std::{
     sync::atomic::{AtomicI32, AtomicI64, Ordering},
     time::{SystemTime, SystemTimeError, UNIX_EPOCH},
 };
+use tokio::net::TcpListener;
 use tokio::{
     sync::{broadcast, Mutex},
     time::{sleep, timeout},
 };
-use tonic::{Request, Response, Status};
+use tokio_stream::wrappers::TcpListenerStream;
+use tonic::{transport::Server, Request, Response, Status};
 
 mod id {
     pub mod rpc {
         tonic::include_proto!("id.rpc");
     }
 }
+pub const FILE_DESCRIPTOR_SET: &'static [u8] = tonic::include_file_descriptor_set!("descriptor");
 
 use id::rpc::id_svr_server::{IdSvr, IdSvrServer};
 use id::rpc::*;
@@ -391,7 +394,7 @@ where
     }
 }
 
-pub async fn get(server: Arc<micro_service::Server>) -> IdSvrServer<IdSvrImpl<DatabaseDataSource>> {
+pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
     let replica_id = server.config().replica_id.expect("not found replica id");
     assert!(replica_id < MAX_REPLICA_ID);
     let connections: u32 = 10;
@@ -401,26 +404,28 @@ pub async fn get(server: Arc<micro_service::Server>) -> IdSvrServer<IdSvrImpl<Da
         .url
         .clone()
         .expect("not found comm database url");
-    let pool = match PgPoolOptions::new()
+
+    let pool = PgPoolOptions::new()
         .max_connections(connections)
         .connect_timeout(Duration::from_secs(5))
         .connect(&database_url)
         .await
-    {
-        Ok(v) => v,
-        Err(err) => {
-            panic!("connect database err {}", err);
-        }
-    };
+        .expect("connect database fail");
+
     let mut bizs = Vec::<IdAllocInfo>::new();
     bizs.resize_with(MAX_BIZ_ID as usize, || IdAllocInfo::new());
     let res: Arc<[IdAllocInfo]> = bizs.into();
 
-    return IdSvrServer::new(IdSvrImpl {
+    let svr = IdSvrServer::new(IdSvrImpl::<DatabaseDataSource> {
         data_source: Arc::new(DatabaseDataSource::new(pool)),
         res,
         data: SnowflakeData::new(replica_id),
     });
+    Server::builder()
+        .add_service(svr)
+        .serve_with_incoming_shutdown(TcpListenerStream::new(listener), server.wait_stop_signal())
+        .await
+        .expect("start server fail");
 }
 
 #[cfg(test)]

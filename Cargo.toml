@@ -5,7 +5,9 @@ members = [
     "server/gateway",
     "server/sessionsvr",
     "server/idsvr",
-    "server/sdwp"
+    "server/sdwp",
+    "server/discover",
+    "server/reflection"
 ]
 [profile.release]
 lto = true

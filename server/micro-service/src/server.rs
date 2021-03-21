@@ -17,7 +17,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub async fn new(config: Arc<MicroServiceConfig>) -> Arc<Server> {
+    pub fn new(config: Arc<MicroServiceConfig>) -> Arc<Server> {
         debug!("start micro-service");
 
         // make struct
@@ -39,7 +39,7 @@ impl Server {
         match map.get(module) {
             Some(v) => v.channel(),
             None => {
-                let m = Module::new(module.to_owned(), self.config.clone(), self.rx.clone());
+                let m = Module::make(module.to_owned(), self.config.clone(), self.rx.clone()).await;
                 let channel = m.channel();
                 map.insert(module.to_owned(), m);
                 channel
@@ -97,6 +97,9 @@ impl Server {
     }
     pub fn config(&self) -> Arc<MicroServiceConfig> {
         self.config.clone()
+    }
+    pub async fn wait_stop_signal(&self) {
+        let _ = self.rx.clone().changed().await;
     }
 }
 

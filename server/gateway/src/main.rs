@@ -22,7 +22,7 @@ async fn main() -> std::io::Result<()> {
 
     info!("init service bind at 0.0.0.0:{}", config.bind_port);
 
-    let ms = Server::new(config).await;
+    let ms = Server::new(config);
     let mut rx = ms.server_signal();
 
     let server = HttpServer::new(move || {

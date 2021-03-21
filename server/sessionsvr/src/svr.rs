@@ -7,14 +7,17 @@ use std::{
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
+use tokio::net::TcpListener;
 use tokio::sync::Mutex;
-use tonic::{Request, Response, Status};
+use tokio_stream::wrappers::TcpListenerStream;
+use tonic::{transport::Server, Request, Response, Status};
 
 pub mod session {
     pub mod rpc {
         tonic::include_proto!("session.rpc");
     }
 }
+pub const FILE_DESCRIPTOR_SET: &'static [u8] = tonic::include_file_descriptor_set!("descriptor");
 
 use session::rpc::session_svr_server::{SessionSvr, SessionSvrServer};
 use session::rpc::*;
@@ -134,8 +137,8 @@ impl SessionSvr for SessionSvrImpl {
     }
 }
 
-pub async fn get(server: Arc<micro_service::Server>) -> SessionSvrServer<SessionSvrImpl> {
-    return SessionSvrServer::new(SessionSvrImpl {
+pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
+    let svr = SessionSvrServer::new(SessionSvrImpl {
         black_map: Mutex::new(HashMap::new()),
         key: server
             .config()
@@ -145,4 +148,10 @@ pub async fn get(server: Arc<micro_service::Server>) -> SessionSvrServer<Session
             .as_bytes()
             .to_vec(),
     });
+
+    Server::builder()
+        .add_service(svr)
+        .serve_with_incoming_shutdown(TcpListenerStream::new(listener), server.wait_stop_signal())
+        .await
+        .expect("start server fail");
 }

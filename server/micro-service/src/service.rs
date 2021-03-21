@@ -1,40 +1,35 @@
 use crate::cfg::*;
-use chrono::NaiveDateTime;
 use log::*;
 use rand::{Rng, SeedableRng};
-use std::{cmp::max, sync::Arc, time::UNIX_EPOCH};
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    time::{Duration, SystemTime},
-};
+use std::{cmp::max, sync::Arc};
+use std::{net::SocketAddr, time::Duration};
 use tokio::sync::mpsc;
-use tokio::sync::{watch, Mutex};
+use tokio::sync::watch;
 use tonic::transport::{Channel, Endpoint};
 use tower::discover::Change;
 
 pub struct Module {
-    pub(crate) module: String, // module name
-    pub(crate) dns_url: String,
-    pub(crate) services: Mutex<HashMap<SocketAddr, Mutex<Service>>>,
     pub(crate) channel: Channel,
     pub(crate) config: Arc<MicroServiceConfig>,
+    module_discover: discover::ModuleDiscover<discover::K8sDiscover>,
 }
 
 impl Module {
-    pub fn new(
+    pub async fn make(
         module: String,
         config: Arc<MicroServiceConfig>,
         rx: watch::Receiver<()>,
     ) -> Arc<Self> {
-        let dns = config.discover.dns_template.clone().replace("{}", &module);
         let (channel, sender) = Channel::balance_channel(100);
+        let discover = discover::K8sDiscover::make(
+            config.discover.suffix.to_owned(),
+            config.discover.name_server.to_owned(),
+        )
+        .await;
         let m = Arc::new(Module {
-            module,
-            dns_url: dns,
-            services: Mutex::new(HashMap::new()),
             channel,
             config,
+            module_discover: discover::ModuleDiscover::new(discover, module),
         });
         tokio::spawn(m.clone().discover(rx, sender));
         m
@@ -43,15 +38,11 @@ impl Module {
     async fn build_discover_changes(
         &self,
         sender: &mpsc::Sender<Change<SocketAddr, Endpoint>>,
-        changes: Vec<Change<SocketAddr, ()>>,
+        changes: Vec<discover::Change>,
     ) {
-        let now = SystemTime::now();
-        for service in self.services.lock().await.values_mut() {
-            service.lock().await.mtime = now;
-        }
         for change in changes {
             match change {
-                Change::Insert(address, _) => {
+                discover::Change::Add((_, address)) | discover::Change::Update((_, address)) => {
                     let endpoint = match Endpoint::from_shared(format!("http://{}", address)) {
                         Ok(v) => v
                             .timeout(Duration::from_secs(5))
@@ -62,14 +53,9 @@ impl Module {
                             continue;
                         }
                     };
-                    self.services
-                        .lock()
-                        .await
-                        .insert(address, Mutex::new(Service::new(address)));
                     let _ = sender.send(Change::Insert(address, endpoint)).await;
                 }
-                Change::Remove(address) => {
-                    self.services.lock().await.remove(&address);
+                discover::Change::Remove((_, address)) => {
                     let _ = sender.send(Change::Remove(address)).await;
                 }
             }
@@ -78,86 +64,38 @@ impl Module {
 
     pub async fn discover(
         self: Arc<Self>,
-        mut rx: watch::Receiver<()>,
+        mut stop_rx: watch::Receiver<()>,
         sender: mpsc::Sender<Change<SocketAddr, Endpoint>>,
     ) {
         let mut rng = rand::rngs::StdRng::from_entropy();
         loop {
-            let mut sleep_millis = 10000;
-            let res = match &self.config.discover.file {
-                None => {
-                    trace!("{} discover loading from dns {}", self.module, self.dns_url);
-                    sleep_millis = rng.gen_range(-1000..=1000) * 10 + 60000;
-                    self.discover_from_dns(&self.dns_url).await
-                }
-                Some(f) => {
-                    trace!("{} discover loading from file {}", self.module, f);
-                    self.discover_from_file(f).await
-                }
-            };
-            match res {
-                Ok(v) => {
-                    self.build_discover_changes(&sender, v).await;
-                }
+            match self.module_discover.watch().await {
+                Ok(v) => self.build_discover_changes(&sender, v).await,
                 Err(e) => {
-                    error!("discover fail error {}", e);
-                    sleep_millis -= 30000;
+                    error!("discover fail: {}", e);
                 }
-            };
-            sleep_millis = max(10000, sleep_millis);
+            }
+
+            let mut sleep_millis: i32 = self.config.discover.ttl as i32 * 1000;
+            sleep_millis += rng.gen_range(-1000..=1000) * 10;
+            sleep_millis = max(120000, sleep_millis);
+
             let sleep = tokio::time::sleep(Duration::from_millis(sleep_millis as u64));
-            let changed = rx.changed();
+            let changed = stop_rx.changed();
             // sleep random interval
             tokio::select! {
                 _ = sleep => {
                 },
                 Ok(_) = changed => {
-                    debug!("{} discover shutdown", self.module);
+                    debug!("{} discover shutdown", self.module_discover.module);
                     break;
                 }
             }
         }
+        self.module_discover.discover.stop();
     }
 
     pub fn channel(&self) -> Channel {
         self.channel.clone()
-    }
-}
-pub struct Service {
-    pub(crate) address: SocketAddr,
-    pub(crate) ctime: SystemTime,
-    pub(crate) mtime: SystemTime,
-}
-
-impl std::fmt::Display for Service {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} created at {} modified at {}",
-            self.address,
-            NaiveDateTime::from_timestamp(
-                self.ctime
-                    .duration_since(UNIX_EPOCH)
-                    .map_or(0, |v| v.as_secs() as i64),
-                0
-            ),
-            NaiveDateTime::from_timestamp(
-                self.mtime
-                    .duration_since(UNIX_EPOCH)
-                    .map_or(0, |v| v.as_secs() as i64),
-                0
-            ),
-        )
-    }
-}
-
-impl Service {
-    pub fn new(address: SocketAddr) -> Self {
-        let now = SystemTime::now();
-        Service {
-            address,
-            ctime: now,
-            mtime: now,
-        }
     }
 }

@@ -6,7 +6,9 @@ use sqlx::postgres::{PgPool, PgPoolOptions, PgRow};
 use sqlx::Row;
 use std::sync::Arc;
 use std::time::Duration;
-use tonic::{Request, Response, Status};
+use tokio::net::TcpListener;
+use tokio_stream::wrappers::TcpListenerStream;
+use tonic::{transport::Server, Request, Response, Status};
 
 type SqlRow = PgRow;
 pub mod user {
@@ -15,6 +17,7 @@ pub mod user {
     }
     tonic::include_proto!("user");
 }
+pub const FILE_DESCRIPTOR_SET: &'static [u8] = tonic::include_file_descriptor_set!("descriptor");
 
 use user::rpc::user_svr_server::{UserSvr, UserSvrServer};
 use user::rpc::*;
@@ -234,7 +237,7 @@ impl UserSvr for UserSvrImpl {
     }
 }
 
-pub async fn get(server: Arc<micro_service::Server>) -> UserSvrServer<UserSvrImpl> {
+pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
     let connections: u32 = 10;
     let database_url = server
         .config()
@@ -242,20 +245,22 @@ pub async fn get(server: Arc<micro_service::Server>) -> UserSvrServer<UserSvrImp
         .url
         .clone()
         .expect("not found comm database url");
-    let pool = match PgPoolOptions::new()
+
+    let pool = PgPoolOptions::new()
         .max_connections(connections)
         .connect_timeout(Duration::from_secs(5))
         .connect(&database_url)
         .await
-    {
-        Ok(v) => v,
-        Err(err) => {
-            panic!("connect database err {}", err);
-        }
-    };
+        .expect("connect database fail");
 
-    return UserSvrServer::new(UserSvrImpl {
+    let user_svr = UserSvrServer::new(UserSvrImpl {
         pool,
-        _server: server,
+        _server: server.clone(),
     });
+
+    Server::builder()
+        .add_service(user_svr)
+        .serve_with_incoming_shutdown(TcpListenerStream::new(listener), server.wait_stop_signal())
+        .await
+        .expect("start server fail");
 }

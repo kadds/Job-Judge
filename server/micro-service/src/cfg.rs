@@ -26,7 +26,8 @@ pub struct MicroServiceMetaConfig {
 pub struct Discover {
     pub ttl: u32,
     pub file: Option<String>,
-    pub dns_template: String,
+    pub suffix: String,
+    pub name_server: String,
 }
 
 #[derive(Debug)]
@@ -46,7 +47,8 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
     let mut name = "UNKNOWN".to_owned();
     let mut level = ServiceLevel::Prod;
     let mut ip = "localhost".to_owned();
-    let mut dns_template = "{}.local".to_owned();
+    let mut suffix = "cluster.local".to_owned();
+    let mut name_server = "".to_owned();
     let mut file = None;
     let mut ttl = 60;
     let mut session_key = None;
@@ -62,7 +64,8 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
                 }
             },
             "JJ_DISCOVER_FILE" => file = Some(v),
-            "JJ_DISCOVER_DNS_TEMPLATE" => dns_template = v,
+            "JJ_DISCOVER_NAME_SERVER" => name_server = v,
+            "JJ_DISCOVER_SUFFIX" => suffix = v,
             "JJ_COMM_DATABASE_URL" => comm_database_url = Some(v),
             "JJ_BIND_PORT" => match v.parse() {
                 Ok(v) => bind_port = v,
@@ -122,7 +125,8 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
         discover: Discover {
             ttl,
             file,
-            dns_template,
+            suffix,
+            name_server,
         },
         meta: MicroServiceMetaConfig {
             module,

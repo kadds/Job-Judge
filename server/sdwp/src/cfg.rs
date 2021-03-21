@@ -2,8 +2,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Config {
-    #[serde(default = "default_dns_template")]
-    pub discover_dns_template: String,
+    #[serde(default = "default_dns_name_server")]
+    pub discover_name_server: String,
+    #[serde(default = "default_dns_suffix")]
+    pub discover_suffix: String,
     // user verify
     #[serde(default = "default_username")]
     pub verify_username: String,
@@ -32,6 +34,9 @@ fn default_no_verify() -> bool {
     true
 }
 
-fn default_dns_template() -> String {
-    "{}.local".to_owned()
+fn default_dns_name_server() -> String {
+    "".to_owned()
+}
+fn default_dns_suffix() -> String {
+    "cluster.local".to_owned()
 }

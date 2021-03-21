@@ -1,6 +1,5 @@
-use actix_web::{get, post, web, HttpResponse, Responder};
-// use anyhow::Result;
-use super::super::AppData;
+use crate::AppData;
+use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use log::*;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -21,7 +20,7 @@ pub enum FetchServiceError {
 type FetchServiceResult<T> = std::result::Result<T, FetchServiceError>;
 
 #[derive(Serialize, Deserialize)]
-pub struct ServicePair {
+pub struct ServerPair {
     pub module_name: String,
     pub server_name: String,
 }
@@ -32,8 +31,8 @@ pub struct RpcPair {
     pub rpc_name: String,
 }
 
-impl From<ServicePair> for RpcPair {
-    fn from(pair: ServicePair) -> Self {
+impl From<ServerPair> for RpcPair {
+    fn from(pair: ServerPair) -> Self {
         RpcPair {
             module_name: pair.module_name,
             server_name: pair.server_name,
@@ -101,10 +100,10 @@ pub async fn list(data: web::Data<Arc<AppData>>) -> impl Responder {
 
 fn get(
     services: &HashMap<String, Vec<ServiceDetail>>,
-    service: web::Json<ServicePair>,
+    server: web::Json<ServerPair>,
 ) -> FetchServiceResult<&ServiceDetail> {
-    if let Some(module) = services.get(&service.module_name) {
-        if let Some(service) = module.iter().find(|v| v.name == service.server_name) {
+    if let Some(module) = services.get(&server.module_name) {
+        if let Some(service) = module.iter().find(|v| v.name == server.server_name) {
             Ok(service)
         } else {
             Err(FetchServiceError::NotFound)
@@ -115,10 +114,7 @@ fn get(
 }
 
 #[get("/rpcs")]
-pub async fn get_rpcs(
-    data: web::Data<Arc<AppData>>,
-    service: web::Json<ServicePair>,
-) -> impl Responder {
+pub async fn get_rpcs(data: web::Data<AppData>, service: web::Json<ServerPair>) -> impl Responder {
     let services = match get_servers_info(&data.config).await {
         Ok(v) => v,
         Err(err) => {
@@ -149,10 +145,7 @@ pub async fn get_rpcs(
 }
 
 #[get("/rpc")]
-pub async fn get_rpc_info(
-    data: web::Data<Arc<AppData>>,
-    _rpc: web::Json<RpcPair>,
-) -> impl Responder {
+pub async fn get_rpc_info(data: web::Data<AppData>, _rpc: web::Json<RpcPair>) -> impl Responder {
     let _services = match get_servers_info(&data.config).await {
         Ok(v) => v,
         Err(err) => {
@@ -162,6 +155,19 @@ pub async fn get_rpc_info(
         }
     };
     HttpResponse::Ok().json(&{})
+}
+
+#[get("/health")]
+pub async fn get_health(data: web::Data<AppData>, server: web::Json<ServerPair>) -> impl Responder {
+    // let v = match is_health(&data.config, &server.module_name, &server.server_name).await {
+    //     Ok(v) => v,
+    //     Err(e) => {
+    //         error!("check health return {}", e);
+    //         return HttpResponse::InternalServerError().body(format!("{}", e));
+    //     }
+    // };
+    let v = true;
+    HttpResponse::Ok().json(&json!({ "health": v }))
 }
 
 #[post("/request")]

@@ -1,17 +1,15 @@
-use std::pin::Pin;
-use std::task::{Context, Poll};
-
 use super::super::{token, AppData};
 use actix_web::{
     dev::Service,
     dev::ServiceRequest,
     dev::ServiceResponse,
     dev::{MessageBody, Transform},
-    error, Error,
+    error, web, Error,
 };
 use futures::future::{ok, Ready};
 use futures::Future;
-use std::sync::Arc;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 pub struct Auth {}
 
@@ -58,7 +56,7 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let uri = req.uri();
-        let data = &req.app_data::<Arc<AppData>>().unwrap();
+        let data = &req.app_data::<web::Data<AppData>>().unwrap();
         let need_token = uri != "/user/login" && !data.config.no_verify;
         let token = req
             .headers()
