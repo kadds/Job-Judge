@@ -7,13 +7,8 @@ struct Server {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Module {
-    servers: HashMap<String, Server>,
-}
-
-#[derive(Serialize, Deserialize)]
 struct Config {
-    modules: HashMap<String, Module>,
+    modules: HashMap<String, HashMap<String, Server>>,
 }
 
 pub struct ConfigDiscover {
@@ -33,7 +28,6 @@ impl Discover for ConfigDiscover {
         let config: Config = toml::from_slice(&bytes)?;
         if let Some(v) = config.modules.get(module_name) {
             return v
-                .servers
                 .iter()
                 .map(|v| {
                     v.1.address
@@ -53,7 +47,7 @@ impl Discover for ConfigDiscover {
         let bytes = tokio::fs::read(&self.config_file).await?;
         let config: Config = toml::from_slice(&bytes)?;
         if let Some(v) = config.modules.get(module_name) {
-            return if let Some(v) = v.servers.get(server_name) {
+            return if let Some(v) = v.get(server_name) {
                 Ok(Some(v.address.parse().map_err(|e| {
                     Error::new(std::io::ErrorKind::InvalidData, e)
                 })?))

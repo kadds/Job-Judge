@@ -41,7 +41,10 @@ impl K8sDiscover {
             tx,
         }
     }
-    pub fn stop(&self) {
+}
+
+impl Drop for K8sDiscover {
+    fn drop(&mut self) {
         let _ = self.tx.send(());
     }
 }

@@ -13,16 +13,14 @@ pub trait Discover {
         server_name: &str,
     ) -> Result<Option<SocketAddr>>;
 }
+
 pub mod config;
 pub mod k8s;
 pub use config::ConfigDiscover;
 pub use k8s::K8sDiscover;
 
-pub struct ModuleDiscover<T>
-where
-    T: Sized + Discover,
-{
-    pub discover: T,
+pub struct ModuleDiscover {
+    pub discover: Box<dyn Discover + Send + Sync>,
     pub module: String,
     map: Mutex<HashMap<String, SocketAddr>>,
 }
@@ -33,11 +31,8 @@ pub enum Change {
     Remove((String, SocketAddr)),
 }
 
-impl<T> ModuleDiscover<T>
-where
-    T: Sized + Discover,
-{
-    pub fn new(discover: T, module: String) -> Self {
+impl ModuleDiscover {
+    pub fn new(discover: Box<dyn Discover + Send + Sync>, module: String) -> Self {
         ModuleDiscover {
             discover,
             map: Mutex::new(HashMap::new()),

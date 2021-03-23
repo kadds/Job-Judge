@@ -149,8 +149,13 @@ pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
             .to_vec(),
     });
 
+    let reflection_svr = reflection::server::Builder::new()
+        .register(FILE_DESCRIPTOR_SET, svr.clone())
+        .build();
+
     Server::builder()
         .add_service(svr)
+        .add_service(reflection_svr)
         .serve_with_incoming_shutdown(TcpListenerStream::new(listener), server.wait_stop_signal())
         .await
         .expect("start server fail");

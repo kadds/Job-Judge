@@ -26,12 +26,24 @@ Token:
 {{contentType}}
 
 {"module_name": "",
-"server_name": ""}
+"instance_name": ""}
 
 ### 
-GET {{base}}service/health HTTP/1.1
+GET {{base}}service/rpc HTTP/1.1
 Token: 
 {{contentType}}
 
 {"module_name": "",
-"server_name": ""}
+"instance_name": "",
+"rpc_name": ""}
+
+### 
+GET {{base}}service/invoke HTTP/1.1
+Token: 
+{{contentType}}
+
+{"module_name": "",
+"instance_name": "",
+"rpc_name": "",
+"params": {}
+}

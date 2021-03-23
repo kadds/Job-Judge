@@ -24,6 +24,7 @@ rand = "0.8"
 lazy_static = "1"
 envy = "0.4"
 discover = {path = "../discover"}
+reflection = {path = "../reflection"}
 
 [build-dependencies]
 tonic-build = "0.4"

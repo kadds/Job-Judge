@@ -6,6 +6,7 @@ pub struct Config {
     pub discover_name_server: String,
     #[serde(default = "default_dns_suffix")]
     pub discover_suffix: String,
+    pub discover_file: String,
     // user verify
     #[serde(default = "default_username")]
     pub verify_username: String,
@@ -16,6 +17,9 @@ pub struct Config {
 
     #[serde(default = "default_port")]
     pub bind_port: u16,
+
+    #[serde(default = "default_services")]
+    pub services: Vec<String>,
 }
 
 fn default_username() -> String {
@@ -37,6 +41,14 @@ fn default_no_verify() -> bool {
 fn default_dns_name_server() -> String {
     "".to_owned()
 }
+
 fn default_dns_suffix() -> String {
     "cluster.local".to_owned()
+}
+
+fn default_services() -> Vec<String> {
+    vec!["gateway", "idsvr", "sessionsvr", "usersvr"]
+        .into_iter()
+        .map(|v| v.to_owned())
+        .collect()
 }

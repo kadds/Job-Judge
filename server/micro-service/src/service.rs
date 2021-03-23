@@ -10,31 +10,10 @@ use tower::discover::Change;
 
 pub struct Module {
     pub(crate) channel: Channel,
-    pub(crate) config: Arc<MicroServiceConfig>,
-    module_discover: discover::ModuleDiscover<discover::K8sDiscover>,
+    module_discover: discover::ModuleDiscover,
 }
 
 impl Module {
-    pub async fn make(
-        module: String,
-        config: Arc<MicroServiceConfig>,
-        rx: watch::Receiver<()>,
-    ) -> Arc<Self> {
-        let (channel, sender) = Channel::balance_channel(100);
-        let discover = discover::K8sDiscover::make(
-            config.discover.suffix.to_owned(),
-            config.discover.name_server.to_owned(),
-        )
-        .await;
-        let m = Arc::new(Module {
-            channel,
-            config,
-            module_discover: discover::ModuleDiscover::new(discover, module),
-        });
-        tokio::spawn(m.clone().discover(rx, sender));
-        m
-    }
-
     async fn build_discover_changes(
         &self,
         sender: &mpsc::Sender<Change<SocketAddr, Endpoint>>,
@@ -62,8 +41,9 @@ impl Module {
         }
     }
 
-    pub async fn discover(
+    async fn discover(
         self: Arc<Self>,
+        ttl: u32,
         mut stop_rx: watch::Receiver<()>,
         sender: mpsc::Sender<Change<SocketAddr, Endpoint>>,
     ) {
@@ -76,7 +56,7 @@ impl Module {
                 }
             }
 
-            let mut sleep_millis: i32 = self.config.discover.ttl as i32 * 1000;
+            let mut sleep_millis: i32 = ttl as i32 * 1000;
             sleep_millis += rng.gen_range(-1000..=1000) * 10;
             sleep_millis = max(120000, sleep_millis);
 
@@ -92,10 +72,52 @@ impl Module {
                 }
             }
         }
-        self.module_discover.discover.stop();
     }
 
     pub fn channel(&self) -> Channel {
         self.channel.clone()
+    }
+    async fn make_config(
+        module: String,
+        config: Arc<MicroServiceConfig>,
+        rx: watch::Receiver<()>,
+    ) -> Arc<Self> {
+        let (channel, sender) = Channel::balance_channel(100);
+        let discover = discover::ConfigDiscover::new(config.discover.file.clone().unwrap());
+        let m = Arc::new(Module {
+            channel,
+            module_discover: discover::ModuleDiscover::new(Box::new(discover), module),
+        });
+        tokio::spawn(m.clone().discover(config.discover.ttl, rx, sender));
+        m
+    }
+    async fn make_k8s(
+        module: String,
+        config: Arc<MicroServiceConfig>,
+        rx: watch::Receiver<()>,
+    ) -> Arc<Self> {
+        let (channel, sender) = Channel::balance_channel(100);
+        let discover = discover::K8sDiscover::make(
+            config.discover.suffix.to_owned(),
+            config.discover.name_server.to_owned(),
+        )
+        .await;
+        let m = Arc::new(Module {
+            channel,
+            module_discover: discover::ModuleDiscover::new(Box::new(discover), module),
+        });
+        tokio::spawn(m.clone().discover(config.discover.ttl, rx, sender));
+        m
+    }
+    pub async fn make(
+        module: String,
+        config: Arc<MicroServiceConfig>,
+        rx: watch::Receiver<()>,
+    ) -> Arc<Self> {
+        if config.discover.file.is_none() {
+            Self::make_k8s(module, config, rx).await
+        } else {
+            Self::make_config(module, config, rx).await
+        }
     }
 }
