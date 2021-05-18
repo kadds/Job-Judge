@@ -25,17 +25,19 @@ GET {{base}}service/rpcs HTTP/1.1
 Token: 
 {{contentType}}
 
-{"module_name": "",
-"instance_name": ""}
+{"module_name": "usersvr",
+"service_name": "user.rpc.UserSvr",
+"instance_name": "test"}
 
 ### 
 GET {{base}}service/rpc HTTP/1.1
 Token: 
 {{contentType}}
 
-{"module_name": "",
-"instance_name": "",
-"rpc_name": ""}
+{"module_name": "usersvr",
+"service_name": "user.rpc.UserSvr",
+"instance_name": "test",
+"rpc_name":"valid_user"}
 
 ### 
 GET {{base}}service/invoke HTTP/1.1

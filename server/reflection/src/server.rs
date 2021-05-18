@@ -4,8 +4,6 @@ use std::collections::HashMap;
 
 use crate::builtin::reflection::reflection_svr_server::*;
 use crate::builtin::reflection::*;
-use prost::Message;
-use prost_types::FileDescriptorSet;
 use tokio::sync::Mutex;
 use tonic::{
     body::BoxBody,
@@ -16,42 +14,136 @@ use tonic::{
 
 mod proto {
     use std::collections::{BTreeMap, HashMap};
-    struct Method {
-        name: String,
-        input_name: String,
-        output_name: String,
-        client_stream: bool,
-        server_stream: bool,
+
+    use log::*;
+    use prost::Message as M;
+    use prost_types::{DescriptorProto, FileDescriptorSet};
+
+
+    pub(crate) struct Method {
+        pub input_type: Message,
+        pub output_type: Message,
+        pub client_stream: bool,
+        pub server_stream: bool,
     }
 
-    struct Service {
-        methods: BTreeMap<String, Method>,
+    pub(crate) struct Service {
+        pub methods: BTreeMap<String, Method>,
+    }
+    pub(crate) enum TypeName {
+        Message(Message),
+        Enum(Enum),
     }
 
-    struct Field {
-        name: String,
+    pub(crate) struct Field {
+        type_name: Option<Box<TypeName>>,
         number: i32,
     }
 
-    struct Message {
-        name: String,
+    pub(crate) struct Message {
         fields: BTreeMap<String, Field>,
     }
 
-    struct Enum {
-        name: String,
+    pub(crate) struct Enum {
         values: BTreeMap<i32, String>,
     }
 
-    struct Reflection {
-        service: Service,
-        messages: HashMap<String, Message>,
-        enums: HashMap<String, Enum>,
+    pub(crate) struct ReflectionInstance {
+        pub service: Service,
+        pub messages: HashMap<String, Message>,
+        pub enums: HashMap<String, Enum>,
+    }
+
+    fn find_message(name: &str, messages: BTreeMap<String, Message>, enums: BTreeMap<String, Enum>) -> Message {
+
+    }
+
+    fn parse_message(package: &str, m: DescriptorProto) -> Message {
+        let name = format!("{}.{}", package, m.name.unwrap());
+        let mut fields = BTreeMap::new();
+        for f in m.field {
+            let name = f.name.unwrap();
+            fields.insert(
+                name,
+                Field {
+                    number: f.number.unwrap(),
+                    type_name: f.type_name.unwrap_or_default(),
+                },
+            );
+        }
+    }
+
+    pub(crate) fn parse(fd_set: &'static [u8], name: &str) -> ReflectionInstance {
+        let f: FileDescriptorSet = FileDescriptorSet::decode(fd_set).unwrap();
+        let mut methods = BTreeMap::new();
+        let mut messages = HashMap::new();
+        let mut enums = HashMap::new();
+        info!("{:?}", f.clone());
+
+        for file in f.file {
+            let file_package = file.package.unwrap();
+            let file_name = file.name.unwrap();
+            debug!("get proto file {} in {}", file_name, file_package);
+
+            for m in file.message_type {
+                let name = format!("{}.{}", file_package, m.name.unwrap());
+                let mut fields = BTreeMap::new();
+                for f in m.field {
+                    let name = f.name.unwrap();
+                    fields.insert(
+                        name,
+                        Field {
+                            number: f.number.unwrap(),
+                            type_name: f.type_name.unwrap_or_default(),
+                        },
+                    );
+                }
+                messages.insert(name, Message { fields });
+            }
+            for e in file.enum_type {
+                let name = e.name.unwrap();
+                let mut values = BTreeMap::new();
+                for f in e.value {
+                    values.insert(f.number.unwrap(), f.name.unwrap());
+                }
+                enums.insert(name, Enum { values });
+            }
+        }
+
+        for file in f.file {
+            let file_package = file.package.unwrap();
+            let file_name = file.name.unwrap();
+            for s in file.service {
+                if format!("{}.{}", file_package, s.name.unwrap()) == name {
+                    debug!("found service {} at {}", name, file_name);
+                    for m in s.method {
+                        let name = m.name.unwrap();
+                        methods.insert(
+                            name,
+                            Method {
+                                input_type_name: find_message(&m.input_type.unwrap(), messages, enums),
+                                output_type_name: m.output_type.unwrap(),
+                                client_stream: m.client_streaming.unwrap_or_default(),
+                                server_stream: m.server_streaming.unwrap_or_default(),
+                            },
+                        );
+                    }
+                }
+            }
+        }
+
+        let service = Service { methods };
+
+        ReflectionInstance {
+            service,
+            messages,
+            enums,
+        }
     }
 }
 
 struct ServicePair {
-    fd: FileDescriptorSet,
+    reflection: proto::ReflectionInstance,
     service: Box<
         dyn Service<
                 http::Request<BoxBody>,
@@ -85,16 +177,28 @@ impl ReflectionSvr for ReflectionSvrImpl {
 
     async fn get_rpc(&self, request: Request<GetRpcReq>) -> Result<Response<GetRpcRsp>, Status> {
         let req = request.into_inner();
-        if req.rpc_name.is_empty() {
-            // get all rpcs
-            todo!();
-        } else {
-            // get single rpc detail
-            if let Some(pair) = self.map.get(&req.service_name) {
-                todo!();
+        if let Some(pair) = self.map.get(&req.service_name) {
+            if req.rpc_name.is_empty() {
+                // get all rpcs
+                let p = pair.lock().await;
+                let rpcs = p
+                    .reflection
+                    .service
+                    .methods
+                    .iter()
+                    .map(|v| v.0.to_owned())
+                    .collect();
+                Ok(Response::new(GetRpcRsp {
+                    res: Some(get_rpc_rsp::Res::Rpcs(BasicRpcs { name: rpcs })),
+                }))
             } else {
-                Err(Status::not_found("service not found"))
+                // get single rpc detail
+                todo!();
             }
+        } else {
+            let msg = format!("service name {} not found", req.service_name);
+            error!("{}", msg);
+            Err(Status::not_found(msg))
         }
     }
 
@@ -147,30 +251,34 @@ impl Builder {
             + 'static
             + NamedService,
     {
-        let decoded: FileDescriptorSet = FileDescriptorSet::decode(fd_set).unwrap();
         let name = <S as NamedService>::NAME;
         self.map.insert(
             name.to_owned(),
             Mutex::new(ServicePair {
-                fd: decoded,
+                reflection: proto::parse(fd_set, name),
                 service: Box::new(service),
             }),
         );
         self
     }
 
-    fn parse(fd_set: &'static [u8]) {
-        let decoded: FileDescriptorSet = FileDescriptorSet::decode(fd_set).unwrap();
-    }
-
     pub fn build(self) -> ReflectionSvrServer<ReflectionSvrImpl> {
-        let ret = ReflectionSvrServer::new(ReflectionSvrImpl {
+        let name = <ReflectionSvrServer<ReflectionSvrImpl> as NamedService>::NAME;
+        let inner = ReflectionSvrImpl {
             map: self.map,
             description: self.description,
             meta_string: self.meta_string,
-        });
+        };
+        let ret = ReflectionSvrServer::new(inner);
+
         if self.with_self {
-            todo!();
+            // map.insert(
+            //     name.to_owned(),
+            //     Mutex::new(ServicePair {
+            //         reflection: proto::parse(FILE_DESCRIPTOR_SET, name),
+            //         service: Box::new(ret.clone()),
+            //     })
+            // );
         }
         ret
     }

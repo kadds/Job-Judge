@@ -34,8 +34,15 @@ message GetRpcReq {
     string rpc_name = 2; // optional
 }
 
+message BasicRpcs {
+    repeated string name = 1;
+}
+
 message GetRpcRsp {
-    repeated Rpc rpc = 1;
+    oneof res {
+        BasicRpcs rpcs = 1;
+        Rpc rpc = 2;
+    }
 }
 
 message InvokeReq {

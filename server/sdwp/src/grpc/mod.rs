@@ -8,8 +8,12 @@ pub enum GrpcError {
     NetError,
     #[error("io error {0}")]
     IOError(#[from] std::io::Error),
-    #[error("not found")]
+    #[error("grpc not found")]
     NotFound,
+    #[error("grpc call fail {0}")]
+    CallFail(#[from] tonic::Status),
+    #[error("grpc call result fail")]
+    InvalidResult,
     #[error("invalid url")]
     InvalidUri,
 }

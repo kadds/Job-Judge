@@ -8,11 +8,13 @@ use serde_json::{json, Value};
 #[derive(Serialize, Deserialize)]
 pub struct ServerPair {
     pub module_name: String,
+    pub service_name: String,
     pub instance_name: String,
 }
 #[derive(Serialize, Deserialize)]
 pub struct RpcPair {
     pub module_name: String,
+    pub service_name: String,
     pub instance_name: String,
     pub rpc_name: String,
 }
@@ -21,6 +23,7 @@ impl From<ServerPair> for RpcPair {
     fn from(pair: ServerPair) -> Self {
         RpcPair {
             module_name: pair.module_name,
+            service_name: pair.service_name,
             instance_name: pair.instance_name,
             rpc_name: "".to_owned(),
         }
@@ -29,7 +32,8 @@ impl From<ServerPair> for RpcPair {
 
 #[derive(Serialize, Deserialize)]
 struct SingleService {
-    pub name: String,
+    pub module_name: String,
+    pub services_names: Vec<String>,
     pub description: String,
     pub instances: Vec<String>,
 }
@@ -50,24 +54,22 @@ pub async fn list(data: web::Data<AppData>) -> impl Responder {
     for s in data.config.services.iter() {
         f0.push(reflection::get_meta(&data.config, s));
     }
-    let services: Result<Vec<reflection::Meta>, grpc::GrpcError> =
-        futures::future::join_all(f0).await.into_iter().collect();
-    let services = match services {
-        Ok(v) => v,
-        Err(err) => {
-            let err = format!("{}", err);
-            error!("{}", err);
-            return HttpResponse::Ok().json(&json!({ "err_msg": err }));
-        }
-    };
+    let services = futures::future::join_all(f0).await;
 
     let list = services
         .into_iter()
         .zip(data.config.services.iter())
-        .map(|(v, name)| SingleService {
-            name: name.to_owned(),
-            description: v.description,
-            instances: v.instances.into_iter().map(|v| v.0).collect(),
+        .flat_map(|(v, name)| match v {
+            Ok(v) => Some(SingleService {
+                module_name: name.to_owned(),
+                services_names: v.inner_services,
+                description: v.description,
+                instances: v.instances.into_iter().map(|v| v.0).collect(),
+            }),
+            Err(err) => {
+                error!("get module {} fail. {}", name, err);
+                None
+            }
         })
         .collect();
 
@@ -77,7 +79,7 @@ pub async fn list(data: web::Data<AppData>) -> impl Responder {
 
 #[get("/rpcs")]
 pub async fn get_rpcs(data: web::Data<AppData>, server: web::Json<ServerPair>) -> impl Responder {
-    let service = match reflection::get_instance_address(
+    let addr = match reflection::get_instance_address(
         &data.config,
         &server.module_name,
         &server.instance_name,
@@ -92,10 +94,10 @@ pub async fn get_rpcs(data: web::Data<AppData>, server: web::Json<ServerPair>) -
         }
     };
 
-    let rpcs = match reflection::get_rpcs(service.0, service.1).await {
+    let rpcs = match reflection::get_rpcs(&server.service_name, addr).await {
         Ok(v) => v,
         Err(err) => {
-            let err = format!("{}", err);
+            let err = format!("try get rpcs fail. {}", err);
             error!("{}", err);
             return HttpResponse::Ok().json(&json!({ "err_msg": err }));
         }
