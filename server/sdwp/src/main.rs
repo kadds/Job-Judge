@@ -1,3 +1,4 @@
+#![feature(async_closure)]
 mod cfg;
 mod grpc;
 mod middleware;

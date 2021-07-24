@@ -9,19 +9,19 @@ edition = "2018"
 [dependencies]
 lazy_static = "1.4"
 micro-service = {path = "../micro-service"}
-reflection = {path = "../reflection"}
 log = "0.4"
-env_logger = "0.8"
-prost = "0.7"
+env_logger = "0.9"
+prost = "0.8"
 tokio = {version = "1.0", features = ["full"]}
 tokio-stream = {version = "0.1", features = ["net"]}
-tonic = "0.4"
+tonic = "0.5"
+tonic-reflection = "0.2"
 rand = "0.8"
-jwt = "0.13"
-hmac = "0.10"
+jwt = "0.14"
+hmac = "0.11"
 sha2="0.9"
 serde = {version = "1.0", features = ["derive"]}
 
 [build-dependencies]
-tonic-build = "0.4"
+tonic-build = "0.5"
 

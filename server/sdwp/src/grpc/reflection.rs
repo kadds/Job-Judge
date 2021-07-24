@@ -1,7 +1,10 @@
+use futures_util::stream;
 use std::net::SocketAddr;
 
+tonic::include_proto!("grpc.reflection.v1alpha");
+
 use log::*;
-use reflection::client::*;
+use server_reflection_client::ServerReflectionClient;
 
 use super::{get_channel, get_module_address, GrpcError, GrpcResult};
 #[derive(Debug)]
@@ -17,18 +20,18 @@ pub async fn get_meta(cfg: &crate::cfg::Config, module_name: &str) -> GrpcResult
     let addr = addrs.first().ok_or(GrpcError::NotFound)?.1;
 
     let channel = get_channel(addr).await?;
-    let mut client = ReflectionSvrClient::new(channel);
-    let req = GetMetaReq {};
-    let rsp = client.get_meta(req).await?.into_inner();
-    debug!(
-        "{} description {} services {:?}",
-        module_name, rsp.description, rsp.services
-    );
-    Ok(Meta {
-        inner_services: rsp.services,
-        description: rsp.description,
-        instances: addrs,
-    })
+    let mut client = ServerReflectionClient::new(channel);
+    let req = ServerReflectionRequest::default();
+    let rsp = client
+        .server_reflection_info(tonic::Request::new(stream::iter([req])))
+        .await?
+        .into_inner();
+    todo!();
+    // Ok(Meta {
+    //     inner_services: rsp.services,
+    //     description: rsp.description,
+    //     instances: addrs,
+    // })
 }
 
 pub async fn get_instance_address(
@@ -48,15 +51,13 @@ pub async fn get_instance_address(
 pub async fn get_rpcs(service_name: &str, addr: SocketAddr) -> Result<Vec<String>, GrpcError> {
     info!("{}", addr);
     let channel = get_channel(addr).await?;
-    let mut client = ReflectionSvrClient::new(channel);
-    let req = GetRpcReq {
-        service_name: service_name.to_owned(),
-        rpc_name: "".to_owned(),
-    };
-    let rsp = client.get_rpc(req).await?.into_inner();
-    let rsp = match rsp.res.ok_or(GrpcError::InvalidResult)? {
-        get_rpc_rsp::Res::Rpcs(v) => v.name,
-        _ => return Err(GrpcError::InvalidResult),
-    };
+    let mut client = ServerReflectionClient::new(channel);
+
+    let req = ServerReflectionRequest::default();
+    let rsp = client
+        .server_reflection_info(tonic::Request::new(stream::iter([req])))
+        .await?
+        .into_inner();
+    todo!();
     Ok(rsp)
 }

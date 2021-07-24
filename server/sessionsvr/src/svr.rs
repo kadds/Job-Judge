@@ -36,12 +36,12 @@ struct Content {
 }
 
 fn gen_session_token(key: &[u8], content: Content) -> Result<String, jwt::Error> {
-    let k: Hmac<Sha256> = Hmac::new_varkey(key).unwrap();
+    let k: Hmac<Sha256> = Hmac::new_from_slice(key).unwrap();
     content.sign_with_key(&k)
 }
 
 fn to_content(key: &[u8], token: String) -> Result<Content, jwt::Error> {
-    let k: Hmac<Sha256> = Hmac::new_varkey(key).unwrap();
+    let k: Hmac<Sha256> = Hmac::new_from_slice(key).unwrap();
     token.verify_with_key(&k)
 }
 
@@ -149,9 +149,10 @@ pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
             .to_vec(),
     });
 
-    let reflection_svr = reflection::server::Builder::new()
-        .register(FILE_DESCRIPTOR_SET, svr.clone())
-        .build();
+    let reflection_svr = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+        .build()
+        .unwrap();
 
     Server::builder()
         .add_service(svr)

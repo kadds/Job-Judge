@@ -422,9 +422,10 @@ pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
         data: SnowflakeData::new(replica_id),
     });
 
-    let reflection_svr = reflection::server::Builder::new()
-        .register(FILE_DESCRIPTOR_SET, svr.clone())
-        .build();
+    let reflection_svr = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+        .build()
+        .unwrap();
 
     Server::builder()
         .add_service(svr)

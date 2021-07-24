@@ -34,4 +34,5 @@ yarn-error.log*
 .secrets
 *.config
 *.env
+.*.toml
 out/
