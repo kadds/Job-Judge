@@ -18,8 +18,8 @@ pub struct Config {
     #[serde(default = "default_port")]
     pub bind_port: u16,
 
-    #[serde(default = "default_services")]
-    pub services: Vec<String>,
+    #[serde(default = "default_modules")]
+    pub modules: Vec<String>,
 }
 
 fn default_username() -> String {
@@ -46,7 +46,7 @@ fn default_dns_suffix() -> String {
     "cluster.local".to_owned()
 }
 
-fn default_services() -> Vec<String> {
+fn default_modules() -> Vec<String> {
     vec!["gateway", "idsvr", "sessionsvr", "usersvr"]
         .into_iter()
         .map(|v| v.to_owned())

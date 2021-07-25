@@ -30,8 +30,8 @@ async fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/service")
                     .service(router::service::list)
-                    .service(router::service::get_rpc_info)
-                    .service(router::service::get_rpcs)
+                    .service(router::service::rpc_detail)
+                    .service(router::service::list_rpc)
                     .service(router::service::invoke),
             )
             .service(web::scope("/user").service(router::user::login))

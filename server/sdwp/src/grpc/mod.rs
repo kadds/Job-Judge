@@ -6,18 +6,39 @@ use thiserror::Error;
 pub enum GrpcError {
     #[error("network error")]
     NetError,
+
     #[error("io error {0}")]
     IOError(#[from] std::io::Error),
-    #[error("grpc not found")]
-    NotFound,
-    #[error("grpc call fail {0}")]
-    CallFail(#[from] tonic::Status),
-    #[error("grpc call result fail")]
-    InvalidResult,
+
+    #[error("service not found. {0}")]
+    ServiceNotFound(String),
+
+    #[error("rpc not found. {0}")]
+    RpcNotFound(String),
+
+    #[error("instance not found. {0}")]
+    InstanceNotFound(String),
+
+    #[error("empty instance in module {0}")]
+    EmptyInstance(String),
+
+    #[error("invoke rpc fail {0}")]
+    InvokeFail(#[from] tonic::Status),
+
+    #[error("invalid input parameters")]
+    InvalidParameters,
+
     #[error("invalid url")]
     InvalidUri,
+
+    #[error("format fail: {0}")]
+    DecodeError(#[from] prost::DecodeError),
+
+    #[error("type not found {0}")]
+    TypeNotFound(String),
+
 }
-type GrpcResult<T> = std::result::Result<T, GrpcError>;
+pub type GrpcResult<T> = std::result::Result<T, GrpcError>;
 
 async fn get_channel(addr: SocketAddr) -> GrpcResult<tonic::transport::Channel> {
     let endpoint = match tonic::transport::Endpoint::from_shared(format!("http://{}", addr)) {
@@ -76,3 +97,4 @@ async fn get_module_instance_address(
 }
 
 pub mod reflection;
+pub use reflection::RequestContext;

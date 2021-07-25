@@ -25,27 +25,27 @@ GET {{base}}service/rpcs HTTP/1.1
 Token: 
 {{contentType}}
 
-{"module_name": "usersvr",
-"service_name": "user.rpc.UserSvr",
-"instance_name": "test"}
+{"module": "usersvr",
+"service": "",
+"instance": ""}
 
 ### 
 GET {{base}}service/rpc HTTP/1.1
 Token: 
 {{contentType}}
 
-{"module_name": "usersvr",
-"service_name": "user.rpc.UserSvr",
-"instance_name": "test",
-"rpc_name":"valid_user"}
+{"module": "usersvr",
+"service": "user.rpc.UserSvr",
+"instance": "test",
+"method":"get_user"}
 
 ### 
 GET {{base}}service/invoke HTTP/1.1
 Token: 
 {{contentType}}
 
-{"module_name": "",
-"instance_name": "",
-"rpc_name": "",
-"params": {}
+{"module": "usersvr",
+"instance": "test",
+"rpc": ".user.rpc.UserSvr.get_user",
+"params": {"id": 1}
 }

@@ -17,6 +17,7 @@ serde_json = "1.0"
 tokio = {version = "1.0", features = ["full"]}
 tonic = "0.5"
 prost = "0.8"
+prost-types = "0.8"
 log = "0.4"
 env_logger = "0.9"
 futures = "0.3"
@@ -25,6 +26,7 @@ rand = "0.8"
 lazy_static = "1"
 envy = "0.4"
 discover = {path = "../discover"}
+bytes = "1.0"
 
 [build-dependencies]
 tonic-build = "0.5"
