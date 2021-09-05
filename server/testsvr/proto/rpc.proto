@@ -1,0 +1,80 @@
+syntax = "proto3";
+package test.rpc;
+
+message EchoReq {
+}
+
+message EchoRsp {
+}
+
+enum BrokerType {
+    option allow_alias = true;
+    Unknown = 0;
+    Normal = 1;
+    NoUsed = 1;
+    Inner = 2;
+    Extern = 3;
+}
+
+
+message ParameterItem {
+    string key = 1;
+    bool required = 2;
+}
+
+message InputBroker {
+    repeated ParameterItem parameters = 1;
+    float cost_min = 2;
+    float cost_max = 3;
+}
+
+message RequireItem {
+    string name = 1;
+    uint32 version = 2;
+    repeated RequireItem requires = 3;
+}
+
+
+message OutputBroker {
+    oneof DevResult {
+        string url = 1;
+        bytes docs = 2;
+    }
+    message Result {
+        sfixed64 error_code = 1;
+        string ident = 2;
+    }
+    repeated RequireItem requires = 3;
+    map<string, double> requires_score = 4;
+    Result result = 5 [deprecated=true];
+    repeated int32 packed = 6 [packed = true];
+    repeated int32 nopacked = 7;
+    repeated string author = 8;
+}
+
+message MessageEchoPack {
+    int32 index = 1;
+    uint64 synckey = 2;
+    fixed64 timestamp = 3;
+    fixed32 inner_id = 4;
+    BrokerType type = 5;
+
+    InputBroker input = 10;
+    OutputBroker output = 11;
+
+    sfixed32 mark = 2484959;
+}
+
+message MessageEchoReq {
+    MessageEchoPack pack = 1;
+}
+
+message MessageEchoRsp {
+    MessageEchoPack pack = 1;
+}
+
+
+service TestSvr {
+    rpc echo(EchoReq) returns (EchoRsp);
+    rpc message_echo(MessageEchoReq) returns (MessageEchoRsp);
+}
