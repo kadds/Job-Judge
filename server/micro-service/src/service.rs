@@ -120,4 +120,12 @@ impl Module {
             Self::make_config(module, config, rx).await
         }
     }
+
+    pub async fn fetch_static(addr: SocketAddr) -> Channel {
+        Channel::from_shared(format!("http://{}", addr))
+            .unwrap()
+            .connect()
+            .await
+            .unwrap()
+    }
 }

@@ -1,9 +1,13 @@
-use actix_http::{http::StatusCode, Response, ResponseBuilder};
+use actix_http::{
+    body::{AnyBody, MessageBody},
+    http::StatusCode,
+    Response, ResponseBuilder,
+};
 use log::info;
 use std::sync::Arc;
 use tonic::{Code, Status};
 
-pub fn build_fail_response(status: Status) -> Response {
+pub fn build_fail_response(status: Status) -> Response<AnyBody> {
     let msg = status.message().to_owned();
     let code = status.code();
     let code = match code {

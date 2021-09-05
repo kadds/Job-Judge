@@ -25,6 +25,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .data(app_data.clone())
+            .wrap(middleware::RequestMetrics::new())
             .wrap(Logger::default())
             .wrap(middleware::Auth::new())
             .service(

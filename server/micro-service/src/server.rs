@@ -1,6 +1,7 @@
 use crate::cfg::ServiceLevel;
 use crate::{cfg::MicroServiceConfig, service::Module};
 use log::*;
+use std::net::SocketAddr;
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
     signal,
@@ -45,6 +46,10 @@ impl Server {
                 channel
             }
         }
+    }
+
+    pub async fn channel_static(&self, addr: SocketAddr) -> Channel {
+        Module::fetch_static(addr).await
     }
 
     pub async fn client<T: RpcClient<T>>(self: Arc<Self>) -> T {

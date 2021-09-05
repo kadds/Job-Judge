@@ -25,7 +25,7 @@ GET {{base}}service/rpcs HTTP/1.1
 Token: 
 {{contentType}}
 
-{"module": "usersvr",
+{"module": "testsvr",
 "service": "",
 "instance": ""}
 
@@ -34,18 +34,64 @@ GET {{base}}service/rpc HTTP/1.1
 Token: 
 {{contentType}}
 
-{"module": "usersvr",
-"service": "user.rpc.UserSvr",
+{"module": "testsvr",
+"service": "test.rpc.TestSvr",
 "instance": "test",
-"method":"get_user"}
+"method":"message_echo"}
 
 ### 
-GET {{base}}service/invoke HTTP/1.1
+POST {{base}}service/invoke HTTP/1.1
 Token: 
 {{contentType}}
 
-{"module": "usersvr",
+{"module": "testsvr",
+"service": "test.rpc.TestSvr",
 "instance": "test",
-"rpc": ".user.rpc.UserSvr.get_user",
-"params": {"id": 1}
+"method": "message_echo",
+"body": { 
+    "pack": {
+        "synckey": 1999200020012003, 
+        "index": -2, 
+        "timestamp": 1501234567890, 
+        "innerId": 1122334455, 
+        "type": "Normal", 
+        "mark": -1024, 
+        "input": {
+            "parameters": [
+                {
+                    "key": "query", "required": true
+                }
+            ], 
+            "costMin": 9.1001e-3, 
+            "costMax": 195e14
+        }, 
+        "output": {
+            // oneof
+            "url": "https://github.com/kadds/job-judge", 
+            "docs": "aHR0cHM6Ly9naXRodWIuY29tL2thZGRzL2pvYi1qdWRnZQ==", 
+
+            "requires": [
+                {
+                    "name": "0", "version": 1, "requires": [
+                        {
+                            "name": "00", "version": 11
+                        }
+                    ]
+                }
+            ], 
+            "requiresScore": [
+                {
+                    "key": "score", "value": 0.1
+                }
+            ],
+            "result": {
+                "error_code": 0, 
+                "ident": "ident"
+            },
+            "author": ["a0", "a1", "a2"], 
+            "nopacked": [5, 6, 7, 8, 0], 
+            "packed": [1, 2, 3] 
+        }
+    } 
+}
 }

@@ -47,7 +47,7 @@ fn default_dns_suffix() -> String {
 }
 
 fn default_modules() -> Vec<String> {
-    vec!["gateway", "idsvr", "sessionsvr", "usersvr"]
+    vec!["gateway", "idsvr", "sessionsvr", "usersvr", "testsvr"]
         .into_iter()
         .map(|v| v.to_owned())
         .collect()

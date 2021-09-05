@@ -1,8 +1,7 @@
 use crate::{grpc, AppData};
 use actix_web::{get, post, web, HttpResponse, Responder};
-use log::*;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 #[derive(Serialize, Deserialize)]
 pub struct ListRpcRequest {
@@ -41,8 +40,17 @@ pub struct ListResult {
     pub list: Vec<String>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct InvokeRequest {
+    pub body: Value,
+    pub module: String,
+    pub service: String,
+    pub instance: String,
+    pub method: String,
+}
+
 #[get("/list")]
-pub async fn list(data: web::Data<AppData>, req: web::Json<ListRequest>) -> impl Responder {
+pub async fn list(data: web::Data<AppData>, _req: web::Json<ListRequest>) -> impl Responder {
     HttpResponse::Ok().json(&ListResult {
         list: data.config.modules.clone(),
     })
@@ -65,7 +73,7 @@ pub async fn list_rpc(data: web::Data<AppData>, req: web::Json<ListRpcRequest>) 
     };
     match f().await {
         Ok(rsp) => HttpResponse::Ok().json(&rsp),
-        Err(err) => HttpResponse::InternalServerError().body(format!("{:?}", err)),
+        Err(err) => HttpResponse::InternalServerError().body(format!("{}", err)),
     }
 }
 
@@ -84,11 +92,23 @@ pub async fn rpc_detail(
     };
     match f().await {
         Ok(rsp) => HttpResponse::Ok().json(&rsp),
-        Err(err) => HttpResponse::InternalServerError().body(format!("{:?}", err)),
+        Err(err) => HttpResponse::InternalServerError().body(format!("{}", err)),
     }
 }
 
 #[post("/invoke")]
-pub async fn invoke(_req: web::Json<Value>) -> impl Responder {
-    HttpResponse::Ok().json(&{})
+pub async fn invoke(data: web::Data<AppData>, req: web::Json<InvokeRequest>) -> impl Responder {
+    let f = async || -> grpc::GrpcResult<Value> {
+        let ctx = grpc::RequestContext::new(&data.config, &req.module, &req.instance).await?;
+        if req.service.is_empty() {
+            return Err(grpc::GrpcError::InvalidParameters);
+        }
+        let req_body = req.body.clone();
+        let resp = ctx.invoke(&req.service, &req.method, req_body).await?;
+        Ok(resp)
+    };
+    match f().await {
+        Ok(rsp) => HttpResponse::Ok().json(&rsp),
+        Err(err) => HttpResponse::InternalServerError().body(format!("{}", err)),
+    }
 }

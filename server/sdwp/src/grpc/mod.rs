@@ -31,13 +31,13 @@ pub enum GrpcError {
     #[error("invalid url")]
     InvalidUri,
 
-    #[error("format fail: {0}")]
+    #[error("encode fail. {0}")]
+    EncodeError(#[from] any_message::EncodeError),
+
+    #[error("format fail. {0}")]
     DecodeError(#[from] prost::DecodeError),
-
-    #[error("type not found {0}")]
-    TypeNotFound(String),
-
 }
+
 pub type GrpcResult<T> = std::result::Result<T, GrpcError>;
 
 async fn get_channel(addr: SocketAddr) -> GrpcResult<tonic::transport::Channel> {
@@ -96,5 +96,6 @@ async fn get_module_instance_address(
     }
 }
 
+mod any_message;
 pub mod reflection;
 pub use reflection::RequestContext;

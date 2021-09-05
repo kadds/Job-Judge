@@ -50,7 +50,7 @@ pub async fn login(ctx: Context, form: Json<LoginForm>) -> impl Responder {
     };
     let token = check_rpc!(cli.create_session(req).await).key;
     let json = json!({ "token": token, "uid": res.id });
-    HttpResponse::Ok().json(&json)
+    HttpResponse::Ok().json(&json).into()
 }
 
 #[post("/logout")]
@@ -67,7 +67,7 @@ pub async fn logout(ctx: Context, http: HttpRequest) -> impl Responder {
     };
     let _ = check_rpc!(cli.invalid_session(req).await);
     let json = json!({});
-    HttpResponse::Ok().json(&json)
+    HttpResponse::Ok().json(&json).into()
 }
 
 #[get("/info")]
@@ -79,11 +79,11 @@ pub async fn info(ctx: Context, form: Query<InfoQuery>) -> impl Responder {
         Some(v) => v,
         None => {
             let json = json!({"err": "not found any user"});
-            return HttpResponse::Ok().json(&json);
+            return HttpResponse::Ok().json(&json).into();
         }
     };
     let json = json!({ "uid": res.id, "avatar": res.avatar, "nickname": res.nickname });
-    HttpResponse::Ok().json(&json)
+    HttpResponse::Ok().json(&json).into()
 }
 
 #[put("/register")]
@@ -96,5 +96,5 @@ pub async fn register(ctx: Context, form: Json<RegisterForm>) -> impl Responder 
     let res = check_rpc!(cli.create_user(req).await);
     info!("user register with uid {}", res.id);
     let json = json!({"uid": res.id});
-    HttpResponse::Ok().json(&json)
+    HttpResponse::Ok().json(&json).into()
 }
