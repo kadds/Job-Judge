@@ -3,7 +3,7 @@
 @host = {{hostname}}:{{port}}
 @contentType = Content-Type: application/json
 
-@base = http://{{host}}/
+@base = http://{{host}}/api/
 
 ###
 POST {{base}}user/login HTTP/1.1

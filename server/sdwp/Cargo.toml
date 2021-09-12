@@ -29,6 +29,8 @@ discover = {path = "../discover"}
 bytes = "1.0"
 num = "0.4"
 base64 = "0.13"
+actix-files = "0.6.0-beta.7"
+actix-cors = "0.6.0-beta.2"
 
 [build-dependencies]
 tonic-build = "0.5"

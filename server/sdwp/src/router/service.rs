@@ -33,9 +33,6 @@ pub struct RpcDetailResult {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ListRequest {}
-
-#[derive(Serialize, Deserialize)]
 pub struct ListResult {
     pub list: Vec<String>,
 }
@@ -50,7 +47,7 @@ pub struct InvokeRequest {
 }
 
 #[get("/list")]
-pub async fn list(data: web::Data<AppData>, _req: web::Json<ListRequest>) -> impl Responder {
+pub async fn list(data: web::Data<AppData>) -> impl Responder {
     HttpResponse::Ok().json(&ListResult {
         list: data.config.modules.clone(),
     })

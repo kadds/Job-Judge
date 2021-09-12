@@ -218,11 +218,7 @@ impl<'a> SubMessage<'a> {
         }
     }
 
-    fn fetch_enum_value(
-        &self,
-        enum_name: &str,
-        value: &serde_json::Value,
-    ) -> Option<i32> {
+    fn fetch_enum_value(&self, enum_name: &str, value: &serde_json::Value) -> Option<i32> {
         if let Some(e) = self.ctx.relate_enum(enum_name) {
             if let Some(val) = value.as_i64().and_then(|f| num::cast::<i64, i32>(f)) {
                 e.enums

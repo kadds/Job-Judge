@@ -1,0 +1,103 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+.app {
+  display: flex;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.panel {
+  width: 240px;
+  padding: 8px;
+  transition: width 150ms linear; 
+  overflow: hidden;
+}
+
+.panel-inner {
+  width: 240px;
+  padding: 0;
+  margin: 0;
+}
+
+.panel-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.main-content {
+  flex: 1 auto;
+  margin: 8px 8px 8px 20px;
+}
+
+.panel-inner > .header {
+  display: flex;
+}
+
+.panel-inner > .header > .title{
+  flex: 1 auto;
+  margin-left: 8px;
+  padding-top: 4px;
+}
+
+.panel-inner > .content {
+  display: flex;
+  flex: 1 auto;
+}
+
+.panel .icons-content {
+  display: flex;
+  flex-wrap: nowrap;
+  flex-direction: column;
+  width: 40px;
+  justify-content: space-between;
+}
+
+.panel .icons-front-content {
+  display: flex;
+  flex-wrap: nowrap;
+  flex-direction: column;
+}
+
+.panel .icons-back-content {
+  display: flex;
+  flex-wrap: nowrap;
+  flex-direction: column;
+}
+
+.menu-content {
+  position: relative;
+  overflow: hidden;
+  width: 200px;
+  height: 100%;
+}
+
+.menu-content>div {
+  position: absolute;
+  width: 200px;
+  height: 100%;
+}
+
+.navlist .detail-list {
+  cursor: pointer;
+  user-select: none;
+}
+
+.content-wrapper {
+  overflow: auto;
+}

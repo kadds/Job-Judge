@@ -22,20 +22,32 @@ async fn main() -> std::io::Result<()> {
     let port: u16 = app_data.config.bind_port;
 
     info!("bind at 0.0.0.0:{}", port);
+
     HttpServer::new(move || {
+        let cors = actix_cors::Cors::default()
+            .allow_any_origin()
+            .allow_any_header()
+            .allow_any_method()
+            .expose_any_header()
+            .max_age(3600);
         App::new()
             .data(app_data.clone())
+            .wrap(cors)
+            .service(actix_files::Files::new("/static", "web").prefer_utf8(true))
             .wrap(middleware::RequestMetrics::new())
             .wrap(Logger::default())
             .wrap(middleware::Auth::new())
             .service(
-                web::scope("/service")
-                    .service(router::service::list)
-                    .service(router::service::rpc_detail)
-                    .service(router::service::list_rpc)
-                    .service(router::service::invoke),
+                web::scope("/api")
+                    .service(
+                        web::scope("/service")
+                            .service(router::service::list)
+                            .service(router::service::rpc_detail)
+                            .service(router::service::list_rpc)
+                            .service(router::service::invoke),
+                    )
+                    .service(web::scope("/user").service(router::user::login)),
             )
-            .service(web::scope("/user").service(router::user::login))
     })
     .bind(format!("0.0.0.0:{}", port))?
     .run()
