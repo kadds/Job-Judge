@@ -6,8 +6,8 @@ use serde_json::Value;
 #[derive(Serialize, Deserialize)]
 pub struct ListRpcRequest {
     pub module: String,
-    pub service: String,
-    pub instance: String,
+    pub service: Option<String>,
+    pub instance: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -54,10 +54,13 @@ pub async fn list(data: web::Data<AppData>) -> impl Responder {
 }
 
 #[get("/rpcs")]
-pub async fn list_rpc(data: web::Data<AppData>, req: web::Json<ListRpcRequest>) -> impl Responder {
+pub async fn list_rpc(data: web::Data<AppData>, req: web::Query<ListRpcRequest>) -> impl Responder {
     let f = async || -> grpc::GrpcResult<ListRpcResult> {
-        let ctx = grpc::RequestContext::new(&data.config, &req.module, &req.instance).await?;
-        let (service, services) = ctx.pick_services_or(&req.service).await?;
+        let instance = req.instance.clone().unwrap_or_default();
+        let service = req.service.clone().unwrap_or_default();
+
+        let ctx = grpc::RequestContext::new(&data.config, &req.module, &instance).await?;
+        let (service, services) = ctx.pick_services_or(&service).await?;
         let rpcs = ctx.list_rpcs(&service).await?;
         let (instance, instances) = ctx.instance();
         Ok(ListRpcResult {
@@ -77,7 +80,7 @@ pub async fn list_rpc(data: web::Data<AppData>, req: web::Json<ListRpcRequest>) 
 #[get("/rpc")]
 pub async fn rpc_detail(
     data: web::Data<AppData>,
-    req: web::Json<RpcDetailRequest>,
+    req: web::Query<RpcDetailRequest>,
 ) -> impl Responder {
     let f = async || -> grpc::GrpcResult<RpcDetailResult> {
         let ctx = grpc::RequestContext::new(&data.config, &req.module, &req.instance).await?;

@@ -16,28 +16,14 @@ POST {{base}}user/login HTTP/1.1
 
 GET {{base}}service/list HTTP/1.1
 Token: 
-{{contentType}}
-
-{}
 
 ### 
-GET {{base}}service/rpcs HTTP/1.1
+GET {{base}}service/rpcs?module=testsvr HTTP/1.1
 Token: 
-{{contentType}}
-
-{"module": "testsvr",
-"service": "",
-"instance": ""}
 
 ### 
-GET {{base}}service/rpc HTTP/1.1
+GET {{base}}service/rpc?module=testsvr&service=test.rpc.TestSvr&instance=test&method=message_echo HTTP/1.1
 Token: 
-{{contentType}}
-
-{"module": "testsvr",
-"service": "test.rpc.TestSvr",
-"instance": "test",
-"method":"message_echo"}
 
 ### 
 POST {{base}}service/invoke HTTP/1.1
