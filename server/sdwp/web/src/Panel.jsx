@@ -1,7 +1,6 @@
-import { IconButton, Text, Separator, getMenuItemStyles } from '@fluentui/react';
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from "framer-motion";
-import { Router, Switch } from 'react-router';
+import { IconButton, Text, Separator } from '@fluentui/react'
+import React, { useState } from 'react'
+import { motion, AnimatePresence } from "framer-motion"
 
 const itemHoverVariants = {
     scale: 1.1,
@@ -26,7 +25,7 @@ const sidebar = {
             stiffness: 150,
         }
     }
-};
+}
 
 const sidebar_mask = {
     open: {
@@ -54,8 +53,8 @@ const Panel = props => {
     const onMenuClick = menu => {
         let arr = props.menu.concat(props.bottom_menu).map(m => {
             if (menu.name === m.name) {
-                return { select: true, ...m };
-            } else { return m; }
+                return { select: true, ...m }
+            } else { return m }
         })
         setNewMenus(arr)
     }
@@ -70,7 +69,7 @@ const Panel = props => {
                     <Text className='title' variant='mediumPlus' block={true}>{props.headerText}</Text>
                 </div>
                 <Separator />
-                <div className='content'>
+                <div className='panel-content'>
                     <div className='icons-content'>
                         <div className='icons-front-content'>
                             {
@@ -113,4 +112,4 @@ const Panel = props => {
     )
 }
 
-export default Panel;
+export default Panel

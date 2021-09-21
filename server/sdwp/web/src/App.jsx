@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import NavList from './NavList';
-import NavHistory from './NavHistory';
-import Content from './Content';
-import Panel from './Panel';
-import Setting from './Setting';
-import { Separator } from '@fluentui/react';
+import React, { useState } from 'react'
+import NavList from './NavList'
+import NavHistory from './NavHistory'
+import Content from './Content'
+import Panel from './Panel'
+import Setting from './Setting'
+import { DefaultButton, Dialog, DefaultEffects, DialogFooter, DialogType, MessageBar, MessageBarType, PrimaryButton, Separator, TextField, Text, IconButton } from '@fluentui/react'
+import { login } from './api'
+import { inject, observer } from 'mobx-react'
+import { motion, AnimatePresence } from "framer-motion"
 
 const menu = [
     { name: 'Services', icon: 'List', render: <NavList /> },
@@ -15,18 +18,88 @@ const bottom_menu = [
     { name: 'Setting', icon: 'Settings', render: <Setting /> }
 ]
 
-const App = () => {
+const App = inject('store')(observer(props => {
+    const ui = props.store.ui
+    const [loginData, setLoginData] = useState({ username: '', password: '' })
+    const [copyDisabled, setCopyDisabled] = useState(false)
+    const resetClick = () => {
+        setLoginData({ username: '', password: '' })
+    }
 
+    const loginClick = () => {
+        (async () => {
+            await login(loginData.username, loginData.password)
+            ui.login.hide_dialog()
+        })()
+    }
+    const onCopy = () => {
+        navigator.clipboard.writeText(ui.hint.text)
+        setCopyDisabled(true)
+        setTimeout(() => {
+            setCopyDisabled(false)
+        }, 2000)
+    }
     return (
         <div className="app">
             <Panel headerText={'Service Debug Web Page'} menu={menu} bottom_menu={bottom_menu}>
             </Panel>
             <Separator vertical={true} />
-            <Content>
+            <Content />
+            <div className='float-window'>
+                <AnimatePresence>
+                    {
+                        ui.errors.text.slice().map(item => (
+                            <motion.div
+                                initial={{ x: 0, y: -50, opacity: 0 }}
+                                animate={{ x: 0, y: 0, opacity: 1 }}
+                                exit={{ x: 20, y: 0, opacity: 0 }}
+                                onMouseEnter={() => ui.errors.keep(item)}
+                                onMouseLeave={() => ui.errors.new_timer(item)}
+                                className={'error-message-bar'}
+                                style={{ boxShadow: DefaultEffects.elevation16 }}
+                                key={item.id}>
+                                <MessageBar
+                                    messageBarType={MessageBarType.error}
+                                    isMultiline={true}>
+                                    <div> {item.status + '  ' + item.statusText} </div>
+                                    <div style={{ marginLeft: '8px' }}>
+                                        at {item.url}
+                                    </div>
+                                    <div>
+                                        {item.data}
+                                    </div>
+                                </MessageBar>
+                            </motion.div>
+                        ))
+                    }
+                </AnimatePresence>
+            </div>
 
-            </Content>
+            <div className={'hint-window ' + (ui.hint.show ? 'show' : 'hide')} style={{ boxShadow: DefaultEffects.elevation16 }}>
+                <Text>{ui.hint.text}</Text>
+                <IconButton onClick={onCopy} disabled={copyDisabled} iconProps={{ iconName: 'Copy' }} />
+            </div>
+            <Dialog
+                hidden={!ui.login.show}
+                onDismiss={() => ui.login.hide_dialog()}
+                dialogContentProps={{
+                    type: DialogType.normal,
+                    title: 'Login',
+                }}
+            >
+                <div>
+                    <TextField label='Username' value={loginData.username}
+                        onChange={(e, value) => setLoginData({ ...loginData, username: value })} />
+                    <TextField label='Password' type='password' canRevealPassword value={loginData.password}
+                        onChange={(e, value) => setLoginData({ ...loginData, password: value })} />
+                </div>
+                <DialogFooter>
+                    <PrimaryButton onClick={loginClick} text='Login' />
+                    <DefaultButton onClick={resetClick} text='Reset' />
+                </DialogFooter>
+            </Dialog>
         </div>
-    );
-};
+    )
+}))
 
-export default App;
+export default App

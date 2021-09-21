@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Text, Separator, Slider, DefaultButton, Label } from '@fluentui/react';
+import React, { useEffect, useState } from 'react'
+import { Text, Separator, Slider, DefaultButton, Label } from '@fluentui/react'
 import { clearAllHistory, historyLimit, loadAllHistory, setHistoryLimit } from './config'
 
 const Setting = () => {
@@ -7,7 +7,7 @@ const Setting = () => {
     const [historySize, setHistorySize] = useState(0)
     const onHistoryValueChange = value => {
         if (value === undefined) {
-            return;
+            return
         }
         setHistoryValue(value)
         setHistoryLimit(value)
@@ -38,4 +38,4 @@ const Setting = () => {
     </div>)
 }
 
-export default Setting;
+export default Setting

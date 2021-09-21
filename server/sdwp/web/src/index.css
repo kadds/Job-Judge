@@ -12,6 +12,27 @@ code {
     monospace;
 }
 
+::-webkit-scrollbar{
+  width: 4px;
+  height: 4px;
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-track{
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb{
+  border-radius: 10px;
+  background-color: #fff;
+  box-shadow: inset 0 0 5px #aaa;
+}
+
+::-webkit-scrollbar-button{
+  height: 0px;
+  width: 0px;
+}
+
 .app {
   display: flex;
   position: absolute;
@@ -26,24 +47,27 @@ code {
   padding: 8px;
   transition: width 150ms linear; 
   overflow: hidden;
+  flex: 0 0 auto;
 }
 
 .panel-inner {
   width: 240px;
   padding: 0;
   margin: 0;
-}
-
-.panel-inner {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
 
 .main-content {
-  flex: 1 auto;
+  flex: 1 1 auto;
   margin: 8px 8px 8px 20px;
+  width: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
+
 
 .panel-inner > .header {
   display: flex;
@@ -55,7 +79,7 @@ code {
   padding-top: 4px;
 }
 
-.panel-inner > .content {
+.panel-inner > .panel-content {
   display: flex;
   flex: 1 auto;
 }
@@ -93,11 +117,231 @@ code {
   height: 100%;
 }
 
-.navlist .detail-list {
+.detail-list {
   cursor: pointer;
   user-select: none;
 }
 
 .content-wrapper {
   overflow: auto;
+}
+
+.tab-root {
+  display: flex;
+  padding: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 36px;
+}
+
+.tab-element-wrapper {
+  flex: 0 0 auto;
+  justify-content: space-between;
+  display: flex;
+  height: 34px;
+  width: 128px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  align-items: center;
+  user-select: none;
+  background-color: #fafafa;
+  position: relative;
+  overflow: hidden;
+  padding-left: 8px;
+  margin: 0;
+}
+
+.tab-element-wrapper:hover {
+  background-color: #f2f2f2;
+}
+
+.tab-bottom-element {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.tab-element-wrapper.select{
+  background-color: #dfdfdf;
+}
+
+.tab-element-wrapper > .tab-element.icon  {
+  display: none;
+  font-size: 12px;
+  width: 12px;
+  height: 12px;
+  margin: 4px;
+  padding: 4px;
+  border-radius: 5px;
+  transition: background-color 100ms linear;
+}
+
+.tab-element-wrapper > .tab-element.icon:hover  {
+  background: #e0e0e0;
+}
+
+.tab-element-wrapper:hover > .tab-element.icon  {
+  display: block;
+}
+
+.tab-element-wrapper.select > .tab-element.icon  {
+  display: block;
+}
+
+.tab-element-wrapper .ms-ProgressIndicator-itemProgress {
+  margin: 0;
+  padding: 0;
+}
+.tab-element-wrapper .ms-ProgressIndicator-progressBar {
+  background: linear-gradient(to right, transparent 0%, rgb(0, 120, 212) 50%, transparent 100%);
+  animation-duration: 1.5s;
+}
+
+.tab-element-wrapper .ms-ProgressIndicator-progressTrack {
+  background: transparent;
+}
+
+.content {
+  flex: 1 0 auto;
+  margin: 16px 8px 8px 8px;
+  position: relative;
+}
+
+.content-inner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 100%;
+  scale: 2;
+}
+
+.query-list-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 220px;
+  flex: 0 0 auto;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.query-content {
+  display: flex;
+  height: 100%;
+}
+
+.query-main {
+  flex: 3 0 auto;
+  display: flex;
+  flex-direction: column;
+  margin: 0 8px 0 8px;
+  overflow: auto;
+  width: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  margin: 4px;
+  align-items: flex-start;
+}
+
+.field-line {
+  display: flex;
+  align-items: center;
+}
+
+.field-icon {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+}
+
+.num-input, .enum{
+  min-width: 120px;
+}
+
+.red {
+  color: red;
+}
+
+.field-label {
+  margin: 4px 8px 4px 0;
+}
+
+.field-group {
+  border-radius: 4px;
+  border: #bbb 1px dashed;
+  margin: 2px 0;
+  position: relative;
+}
+
+.field-group-icon {
+  position: absolute;
+  top: 6px;
+  left: 0px;
+}
+
+.message {
+  padding: 0 0 0 20px;
+}
+
+.query-result {
+  margin: 0 8px 0 8px;
+  flex: 2 0 auto;
+  width: 0;
+}
+
+.send-button {
+  margin: 8px 4px;
+}
+
+.hide {
+  display: none !important;
+}
+
+.show {
+  display: block !important;
+}
+
+.float-window {
+  position: absolute;
+  right: 40px;
+  top: 40px;
+  width: 400px;
+  height: auto;
+  z-index: 100;
+  border-radius: 4px;
+}
+
+.hint-window {
+  position: absolute;
+  top: 20px;
+  width: auto;
+  height: auto;
+  z-index: 99;
+  overflow: hidden;
+  padding: 8px 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #eee;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.error-message-bar {
+  margin: 16px 8px;
+}
+
+.json-view {
+  min-width: 200px;
+}
+
+.json-view .ms-TextField-field {
+  font-size: 18px;
+  line-height: 1.3em;
 }

@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { DetailsList, Selection, SearchBox, DetailsListLayoutMode, SelectionMode, Label, Text, CheckboxVisibility } from '@fluentui/react';
-import { loadAllHistory } from './config';
+import React, { useEffect, useState } from 'react'
+import { DetailsList, Selection, SearchBox, DetailsListLayoutMode, SelectionMode, Label, Text, CheckboxVisibility } from '@fluentui/react'
+import { loadAllHistory } from './config'
 
-const NavHistory = props => {
+const NavHistory = () => {
     const [items, setItems] = useState([])
     const [finalItems, setFinalItems] = useState([])
 
     const onSearch = text => {
         setFinalItems(
             items.filter(t => t.toLowerCase().indexOf(text) > -1)
-        );
+        )
     }
     useEffect(() => {
         const data = loadAllHistory()
@@ -17,7 +17,6 @@ const NavHistory = props => {
         setFinalItems(data)
     }, [])
     const onInvoked = item => {
-        console.log("invoke", item)
     }
     const selection = new Selection({
         onSelectionChanged: () => console.log(selection.getSelection()[0])
@@ -47,6 +46,6 @@ const NavHistory = props => {
 
         </div>
     )
-};
+}
 
-export default NavHistory;
+export default NavHistory
