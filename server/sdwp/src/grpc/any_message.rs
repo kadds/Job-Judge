@@ -243,6 +243,9 @@ impl<'a> SubMessage<'a> {
         stack: &mut Vec<(*const u8, usize)>,
         ignore_msg: bool,
     ) -> EncodeResult {
+        if value.is_null() {
+            return Ok(());
+        }
         match t {
             Type::Double => {
                 if value.as_f64().is_none() {
@@ -635,6 +638,9 @@ impl<'a> Message for SubMessage<'a> {
             let tag = field.pos;
             let t = field.ktype.clone();
             let rt = self.repeated_type(field);
+            if value.is_null() {
+                continue;
+            }
 
             match t {
                 Type::Double => {
@@ -724,6 +730,9 @@ impl<'a> Message for SubMessage<'a> {
                 None => continue,
             };
             let rt = self.repeated_type(field);
+            if value.is_null() {
+                continue;
+            }
 
             let field_len = match t {
                 Type::Double => {
