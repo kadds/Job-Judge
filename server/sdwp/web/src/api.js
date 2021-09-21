@@ -8,12 +8,13 @@ let token = ''
 const instance = axios.create({
     baseURL: base_url,
     timeout: 2000,
+    headers: { 'Access-Control-Allow-Origin': '*' }
 })
 
 instance.interceptors.request.use(function (config) {
     return {
         ...config,
-        headers: { 'Token': token }
+        headers: { ...config.headers, 'Token': token }
     }
 }, function (error) {
     const res = error.request
@@ -63,7 +64,8 @@ async function get_rpc(module, service, ins, method) {
 
 async function invoke_rpc(module, service, ins, method, body) {
     let resp = await instance.post(`/service/invoke`, { module, service, instance: ins, method, body })
-    return resp.data
+    console.log(resp)
+    return { data: resp.data, cost: parseInt(resp.headers.cost) }
 }
 
 export { list_service, list_rpc, get_rpc, invoke_rpc, login }

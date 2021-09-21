@@ -277,6 +277,7 @@ const QueryPage = ({ api, tab }) => {
     const [updateFlag, setUpdateFlag] = useState(0)
     const [requestData, setRequestData] = useState({})
     const [editJson, setEditJsonInner] = useState(false)
+    const [cost, setCost] = useState(null)
 
     const setEditJson = val => {
         setRequestData(JSON.parse(JSON.stringify(requestData)))
@@ -321,9 +322,13 @@ const QueryPage = ({ api, tab }) => {
     const onInvokeClick = () => {
         (async () => {
             ui.tab.loading_tab(tab)
-            const data = await invoke_rpc(api, serviceSelection, instanceSelection, method, requestData)
+            const start = Date.now()
+            const { data, cost } = await invoke_rpc(api, serviceSelection, instanceSelection, method, requestData)
             setResultData(data)
             ui.tab.finish_loading(tab)
+            const end = Date.now()
+            const delta = end - start
+            setCost({ client: delta, server: cost })
         })()
     }
     return (
@@ -382,6 +387,12 @@ const QueryPage = ({ api, tab }) => {
             </div>
             <Separator vertical />
             <div className='query-result'>
+                {cost && (
+                    <div className='query-time'>
+                        <Text>Client side cost: {cost.client}ms</Text>
+                        <Text>Server side cost: {cost.server}ms</Text>
+                    </div>
+                )}
                 <JsonView json={resultData} />
             </div>
         </div >)

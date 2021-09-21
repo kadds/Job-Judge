@@ -4,7 +4,7 @@ mod grpc;
 mod middleware;
 mod router;
 mod token;
-use actix_web::{middleware::Logger, web, App, HttpServer};
+use actix_web::{App, HttpServer, http::HeaderName, middleware::Logger, web};
 use log::*;
 use std::sync::Arc;
 
@@ -28,14 +28,14 @@ async fn main() -> std::io::Result<()> {
             .allow_any_origin()
             .allow_any_header()
             .allow_any_method()
-            .expose_any_header()
+            .expose_headers([HeaderName::from_static("cost")])
             .max_age(3600);
         App::new()
             .data(app_data.clone())
             .wrap(cors)
-            .service(actix_files::Files::new("/static", "web").prefer_utf8(true))
             .wrap(middleware::RequestMetrics::new())
             .wrap(Logger::default())
+            .service(actix_files::Files::new("/static", "web").prefer_utf8(true))
             .wrap(middleware::Auth::new())
             .service(
                 web::scope("/api")
