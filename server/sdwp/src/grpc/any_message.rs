@@ -426,7 +426,7 @@ impl<'a> SubMessage<'a> {
                         _ => {}
                     };
                     // get array
-                    if !value.is_null() {
+                    if value.is_array() {
                         let mut idx = 0;
                         for value_item in value.as_array().unwrap() {
                             let str = format!("{}", idx);
@@ -479,7 +479,7 @@ macro_rules! wrap_encoded_len {
             RepeatedType::Packed => {
                 if !$value.is_null() {
                     let arr = $value.as_array().unwrap();
-                    let k = arr.iter().map(|v| $f(v).unwrap()).collect::<Vec<_>>();
+                    let k = arr.iter().filter_map(|v| $f(v)).collect::<Vec<_>>();
                     prost::encoding::$s::encoded_len_packed($tag, &k)
                 } else {
                     0
@@ -502,7 +502,7 @@ macro_rules! wrap_encoded_len_nopack {
             RepeatedType::Repeated => {
                 if !$value.is_null() {
                     let arr = $value.as_array().unwrap();
-                    let k = arr.iter().map(|v| $f(v).unwrap()).collect::<Vec<_>>();
+                    let k = arr.iter().filter_map(|v| $f(v)).collect::<Vec<_>>();
                     prost::encoding::$s::encoded_len_repeated($tag, &k)
                 } else {
                     0
@@ -522,7 +522,7 @@ macro_rules! wrap_encode {
             RepeatedType::Packed => {
                 if !$value.is_null() {
                     let arr = $value.as_array().unwrap();
-                    let k = arr.iter().map(|v| $f(v).unwrap()).collect::<Vec<_>>();
+                    let k = arr.iter().filter_map(|v| $f(v)).collect::<Vec<_>>();
                     prost::encoding::$s::encode_packed($tag, &k, $buf);
                 }
             }
@@ -541,7 +541,7 @@ macro_rules! wrap_encode_nopack {
             RepeatedType::Repeated => {
                 if !$value.is_null() {
                     let arr = $value.as_array().unwrap();
-                    let k = arr.iter().map(|v| $f(v).unwrap()).collect::<Vec<_>>();
+                    let k = arr.iter().filter_map(|v| $f(v)).collect::<Vec<_>>();
                     prost::encoding::$s::encode_repeated($tag, &k, $buf)
                 }
             }

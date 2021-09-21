@@ -50,7 +50,10 @@ async fn query_symbols_inner<T: Iterator<Item = S>, S: ToString>(
         .into_inner();
     let mut result = Vec::new();
     while let Some(rsp) = rsp.message().await? {
-        match rsp.message_response.unwrap() {
+        match rsp
+            .message_response
+            .ok_or(GrpcError::LogicError("empty response"))?
+        {
             MessageResponse::FileDescriptorResponse(rsp) => {
                 let fds: Result<Vec<prost_types::FileDescriptorProto>, DecodeError> = rsp
                     .file_descriptor_proto
@@ -322,7 +325,9 @@ impl RequestContext {
         if addrs.is_empty() {
             return Err(GrpcError::EmptyInstance(module.to_owned()));
         }
-        let addr = addrs.get(rng.gen_range(0..addrs.len())).unwrap();
+        let addr = addrs
+            .get(rng.gen_range(0..addrs.len()))
+            .ok_or(GrpcError::LogicError("random pick fail"))?;
         let channel = get_channel(addr.1).await?;
         Ok(RequestContext {
             addr: addr.0.to_owned(),
@@ -369,7 +374,10 @@ impl RequestContext {
             .await?
             .into_inner();
         while let Some(rsp) = rsp.message().await? {
-            match rsp.message_response.unwrap() {
+            match rsp
+                .message_response
+                .ok_or(GrpcError::LogicError("empty response"))?
+            {
                 MessageResponse::ListServicesResponse(rsp) => {
                     list.extend(rsp.service.into_iter().map(|v| v.name));
                 }

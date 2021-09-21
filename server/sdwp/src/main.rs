@@ -4,7 +4,7 @@ mod grpc;
 mod middleware;
 mod router;
 mod token;
-use actix_web::{App, HttpServer, http::HeaderName, middleware::Logger, web};
+use actix_web::{http::HeaderName, middleware::Logger, web, App, HttpServer};
 use log::*;
 use std::sync::Arc;
 

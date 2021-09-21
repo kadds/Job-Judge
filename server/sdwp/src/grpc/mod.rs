@@ -36,6 +36,9 @@ pub enum GrpcError {
 
     #[error("format fail. {0}")]
     DecodeError(#[from] prost::DecodeError),
+
+    #[error("logic fail. {0}")]
+    LogicError(&'static str),
 }
 
 pub type GrpcResult<T> = std::result::Result<T, GrpcError>;
