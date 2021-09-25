@@ -29,12 +29,14 @@ jobs:
       - name: build
         run: |
           cargo build --release --target=x86_64-unknown-linux-musl
-      - uses: borales/actions-yarn@v2.3.0
+      - uses: actions/setup-node@v2
         with:
-          cmd: install
-      - uses: borales/actions-yarn@v2.3.0
-        with:
-          cmd: build
+          node-version: '14'
+          cache: 'npm'
+      - run: | 
+          cd server/sdwp/web
+          yarn
+          yarn build
       - run: ./post_build.sh
       - run: tar -cvf out.tar out/
       - uses: actions/upload-artifact@v2
