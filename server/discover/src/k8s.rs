@@ -79,13 +79,14 @@ impl Discover for K8sDiscover {
         server_name: &str,
     ) -> Result<Option<SocketAddr>> {
         let dns_url = format!("{}.{}.{}", server_name, module_name, self.suffix);
-        for record in self
+        if let Some(record) = self
             .client
             .lock()
             .await
             .query(Name::from_str(&dns_url)?, DNSClass::IN, RecordType::A)
             .await?
             .answers()
+            .first()
         {
             return Ok(record
                 .rdata()

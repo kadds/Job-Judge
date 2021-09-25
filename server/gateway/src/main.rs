@@ -28,7 +28,7 @@ async fn main() -> std::io::Result<()> {
     let server = HttpServer::new(move || {
         let app_data = AppData { server: ms.clone() };
         App::new()
-            .data(app_data)
+            .app_data(web::Data::new(app_data))
             .wrap(Logger::new("%a  %t-%D %b"))
             .wrap(middleware::Auth::new())
             .service(

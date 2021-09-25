@@ -17,7 +17,7 @@ pub mod user {
     }
     tonic::include_proto!("user");
 }
-pub const FILE_DESCRIPTOR_SET: &'static [u8] = tonic::include_file_descriptor_set!("descriptor");
+pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("descriptor");
 
 use user::rpc::user_svr_server::{UserSvr, UserSvrServer};
 use user::rpc::*;

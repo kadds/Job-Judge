@@ -1,0 +1,4 @@
+avoid-breaking-exported-api = false
+cognitive-complexity-threshold = 20
+type-complexity-threshold=450
+enum-variant-name-threshold=5

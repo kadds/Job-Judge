@@ -50,20 +50,17 @@ async fn query_symbols_inner<T: Iterator<Item = S>, S: ToString>(
         .into_inner();
     let mut result = Vec::new();
     while let Some(rsp) = rsp.message().await? {
-        match rsp
+        if let MessageResponse::FileDescriptorResponse(rsp) = rsp
             .message_response
             .ok_or(GrpcError::LogicError("empty response"))?
         {
-            MessageResponse::FileDescriptorResponse(rsp) => {
-                let fds: Result<Vec<prost_types::FileDescriptorProto>, DecodeError> = rsp
-                    .file_descriptor_proto
-                    .into_iter()
-                    .map(|v| prost_types::FileDescriptorProto::decode(v.as_slice()))
-                    .collect();
-                let fds = fds.map_err(|v| GrpcError::DecodeError(v))?;
-                result.extend(fds);
-            }
-            _ => (),
+            let fds: Result<Vec<prost_types::FileDescriptorProto>, DecodeError> = rsp
+                .file_descriptor_proto
+                .into_iter()
+                .map(|v| prost_types::FileDescriptorProto::decode(v.as_slice()))
+                .collect();
+            let fds = fds.map_err(GrpcError::DecodeError)?;
+            result.extend(fds);
         }
     }
     Ok(result)
@@ -98,7 +95,7 @@ impl<'a> SymbolQueryContext<'a> {
 
     fn make_types_r(
         prefix: &str,
-        descs: &Vec<prost_types::DescriptorProto>,
+        descs: &[prost_types::DescriptorProto],
         map: &mut HashMap<String, CommonTypeProto>,
     ) {
         for desc in descs {
@@ -115,7 +112,7 @@ impl<'a> SymbolQueryContext<'a> {
 
     fn make_types_e_r(
         prefix: &str,
-        descs: &Vec<prost_types::EnumDescriptorProto>,
+        descs: &[prost_types::EnumDescriptorProto],
         map: &mut HashMap<String, CommonTypeProto>,
     ) {
         for desc in descs {
@@ -125,7 +122,7 @@ impl<'a> SymbolQueryContext<'a> {
     }
 
     pub fn make_types(
-        symbols: &Vec<prost_types::FileDescriptorProto>,
+        symbols: &[prost_types::FileDescriptorProto],
     ) -> HashMap<String, CommonTypeProto> {
         let mut map = HashMap::new();
         for file in symbols {
@@ -190,7 +187,7 @@ impl<'a> SymbolQueryContext<'a> {
         }
     }
 
-    fn parse_fields(&mut self, fields: &Vec<prost_types::FieldDescriptorProto>) -> Vec<Field> {
+    fn parse_fields(&mut self, fields: &[prost_types::FieldDescriptorProto]) -> Vec<Field> {
         fields
             .iter()
             .map(|v| {
@@ -215,7 +212,7 @@ impl<'a> SymbolQueryContext<'a> {
             .collect()
     }
 
-    fn parse_enums(&self, enums: &Vec<prost_types::EnumValueDescriptorProto>) -> Vec<EnumField> {
+    fn parse_enums(&self, enums: &[prost_types::EnumValueDescriptorProto]) -> Vec<EnumField> {
         enums
             .iter()
             .map(|v| EnumField {
@@ -237,7 +234,7 @@ impl<'a> SymbolQueryContext<'a> {
                     CommonType::Message(MessageType {
                         fields,
                         name,
-                        oneofs: oneofs,
+                        oneofs,
                     })
                 }
                 CommonTypeProto::Enum(e) => {
@@ -251,7 +248,7 @@ impl<'a> SymbolQueryContext<'a> {
     }
 
     fn query_type(&mut self, name: &str) -> std::option::Option<CommonType> {
-        if name.starts_with(".") {
+        if name.starts_with('.') {
             return self.inner_query_type(name);
         }
         // name resolve
@@ -374,14 +371,11 @@ impl RequestContext {
             .await?
             .into_inner();
         while let Some(rsp) = rsp.message().await? {
-            match rsp
+            if let MessageResponse::ListServicesResponse(rsp) = rsp
                 .message_response
                 .ok_or(GrpcError::LogicError("empty response"))?
             {
-                MessageResponse::ListServicesResponse(rsp) => {
-                    list.extend(rsp.service.into_iter().map(|v| v.name));
-                }
-                _ => (),
+                list.extend(rsp.service.into_iter().map(|v| v.name));
             }
         }
 
@@ -398,15 +392,14 @@ impl RequestContext {
     pub async fn pick_services_or(&self, service: &str) -> GrpcResult<(String, Vec<String>)> {
         let mut res = self.list_services().await?;
         if res.is_empty() {
-            return Err(GrpcError::ServiceNotFound(format!(
-                "list services is empty"
-            )));
+            return Err(GrpcError::ServiceNotFound(
+                "list services is empty".to_string(),
+            ));
         }
         res.sort();
         if service.is_empty() {
             res.iter()
-                .filter(|v| !v.starts_with("grpc."))
-                .next()
+                .find(|v| !v.starts_with("grpc."))
                 .cloned()
                 .ok_or_else(|| GrpcError::ServiceNotFound(service.to_owned()))
         } else {
@@ -415,7 +408,7 @@ impl RequestContext {
                 .cloned()
                 .ok_or_else(|| GrpcError::ServiceNotFound(service.to_owned()))
         }
-        .map(|v| (v.to_owned(), res))
+        .map(|v| (v, res))
     }
 
     async fn query_symbols<T: Iterator<Item = S>, S: ToString>(
@@ -514,20 +507,23 @@ impl RequestContext {
         );
 
         grpc.ready().await.map_err(|_| GrpcError::NetError)?;
-        let ret = if rpc_info.request_stream {
-            if rpc_info.response_stream {
-                grpc.unary(tonic::Request::new(message), path, codec)
-            } else {
-                grpc.unary(tonic::Request::new(message), path, codec)
-            }
-        } else {
-            if rpc_info.response_stream {
-                grpc.unary(tonic::Request::new(message), path, codec)
-            } else {
-                grpc.unary(tonic::Request::new(message), path, codec)
-            }
-        }
-        .await?;
-        Ok(ret.into_inner().into())
+        // let ret = if rpc_info.request_stream {
+        //     if rpc_info.response_stream {
+        //         grpc.unary(tonic::Request::new(message), path, codec)
+        //     } else {
+        //         grpc.unary(tonic::Request::new(message), path, codec)
+        //     }
+        // } else {
+        //     if rpc_info.response_stream {
+        //         grpc.unary(tonic::Request::new(message), path, codec)
+        //     } else {
+        //         grpc.unary(tonic::Request::new(message), path, codec)
+        //     }
+        // }
+        // .await?;
+        let ret = grpc
+            .unary(tonic::Request::new(message), path, codec)
+            .await?;
+        Ok(ret.into_inner().value())
     }
 }

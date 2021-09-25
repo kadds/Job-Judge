@@ -20,7 +20,7 @@ mod id {
         tonic::include_proto!("id.rpc");
     }
 }
-pub const FILE_DESCRIPTOR_SET: &'static [u8] = tonic::include_file_descriptor_set!("descriptor");
+pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("descriptor");
 
 use id::rpc::id_svr_server::{IdSvr, IdSvrServer};
 use id::rpc::*;
@@ -319,6 +319,7 @@ async fn gen_snowflake_seq(data: &SnowflakeData) -> Result<i64, GenSnowflakeSeqE
         let last_delta = from_bits(last, TIME_BIT, TIME_RIGHT);
         let last_seq = from_bits(last, SEQ_BIT, SEQ_RIGHT);
         let d = last_delta - delta;
+        #[allow(clippy::comparison_chain)]
         if d == 0 {
             if last_seq < (1 << SEQ_BIT) - 1 {
                 if cas!(data.last_val, last, last + 1) {
@@ -344,14 +345,14 @@ async fn gen_snowflake_seq(data: &SnowflakeData) -> Result<i64, GenSnowflakeSeqE
                 return Err(GenSnowflakeSeqError::OutOfRange);
             }
             let mut result = delta << TIME_RIGHT;
-            result = result | ((data.replica_id as i64) << REPLICA_RIGHT);
+            result |= (data.replica_id as i64) << REPLICA_RIGHT;
             if cas!(data.last_val, last, result) {
                 return Ok(result);
             }
         }
         if times >= TRY_MAX_TIMES / 2 {
             sleep(Duration::from_millis(
-                1 * (times - TRY_MAX_TIMES / 2 + 1) as u64,
+                (times - TRY_MAX_TIMES / 2 + 1) as u64,
             ))
             .await;
         }
@@ -413,7 +414,7 @@ pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
         .expect("connect database fail");
 
     let mut bizs = Vec::<IdAllocInfo>::new();
-    bizs.resize_with(MAX_BIZ_ID as usize, || IdAllocInfo::new());
+    bizs.resize_with(MAX_BIZ_ID as usize, IdAllocInfo::new);
     let res: Arc<[IdAllocInfo]> = bizs.into();
 
     let svr = IdSvrServer::new(IdSvrImpl::<DatabaseDataSource> {
@@ -469,8 +470,7 @@ mod tests {
             },
         );
         drop(map);
-        let mut bizs = Vec::new();
-        bizs.push(IdAllocInfo::new());
+        let bizs = vec![IdAllocInfo::new()];
         let b: Arc<[IdAllocInfo]> = bizs.into();
         assert_eq!(gen_id(s.clone(), 0, b.clone()).await.unwrap(), 1000);
         assert_eq!(gen_id(s.clone(), 0, b.clone()).await.unwrap(), 1001);

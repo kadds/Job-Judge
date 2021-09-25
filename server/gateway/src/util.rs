@@ -1,8 +1,4 @@
-use actix_http::{
-    body::{AnyBody, MessageBody},
-    http::StatusCode,
-    Response, ResponseBuilder,
-};
+use actix_http::{body::AnyBody, http::StatusCode, Response, ResponseBuilder};
 use log::info;
 use std::sync::Arc;
 use tonic::{Code, Status};

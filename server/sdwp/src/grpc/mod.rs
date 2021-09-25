@@ -78,6 +78,7 @@ async fn get_module_address(
     }
 }
 
+#[allow(dead_code)]
 async fn get_module_instance_address(
     cfg: &crate::cfg::Config,
     module: &str,

@@ -1,6 +1,3 @@
-use log::*;
-use prost::Message;
-use std::fmt;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -12,7 +9,7 @@ mod test {
         tonic::include_proto!("test.rpc");
     }
 }
-pub const FILE_DESCRIPTOR_SET: &'static [u8] = tonic::include_file_descriptor_set!("descriptor");
+pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("descriptor");
 use test::rpc::test_svr_server::{TestSvr, TestSvrServer};
 use test::rpc::*;
 

@@ -220,23 +220,20 @@ impl<'a> SubMessage<'a> {
 
     fn fetch_enum_value(&self, enum_name: &str, value: &serde_json::Value) -> Option<i32> {
         if let Some(e) = self.ctx.relate_enum(enum_name) {
-            if let Some(val) = value.as_i64().and_then(|f| num::cast::<i64, i32>(f)) {
-                e.enums
-                    .iter()
-                    .find(|v| v.pos == val)
-                    .and_then(|v| Some(v.pos))
+            if let Some(val) = value.as_i64().and_then(num::cast::<i64, i32>) {
+                e.enums.iter().find(|v| v.pos == val).map(|v| v.pos)
             } else {
                 value
                     .as_str()
                     .and_then(|f| e.enums.iter().find(|v| v.name == f))
-                    .and_then(|v| Some(v.pos))
+                    .map(|v| v.pos)
             }
         } else {
             None
         }
     }
 
-    fn check_single_value<'b>(
+    fn check_single_value(
         &self,
         t: &Type,
         value: &serde_json::Value,
@@ -253,20 +250,12 @@ impl<'a> SubMessage<'a> {
                 }
             }
             Type::Float => {
-                if value
-                    .as_f64()
-                    .and_then(|f| num::cast::<f64, f32>(f))
-                    .is_none()
-                {
+                if value.as_f64().and_then(num::cast::<f64, f32>).is_none() {
                     ret_type_mismatch!("float", stack);
                 }
             }
             Type::Fixed32 => {
-                if value
-                    .as_u64()
-                    .and_then(|f| num::cast::<u64, u32>(f))
-                    .is_none()
-                {
+                if value.as_u64().and_then(num::cast::<u64, u32>).is_none() {
                     ret_type_mismatch!("fixed32", stack);
                 }
             }
@@ -296,11 +285,7 @@ impl<'a> SubMessage<'a> {
                 }
             }
             Type::Sfixed32 => {
-                if value
-                    .as_i64()
-                    .and_then(|f| num::cast::<i64, i32>(f))
-                    .is_none()
-                {
+                if value.as_i64().and_then(num::cast::<i64, i32>).is_none() {
                     ret_type_mismatch!("sfixed32", stack);
                 }
             }
@@ -310,11 +295,7 @@ impl<'a> SubMessage<'a> {
                 }
             }
             Type::Int32 => {
-                if value
-                    .as_i64()
-                    .and_then(|f| num::cast::<i64, i32>(f))
-                    .is_none()
-                {
+                if value.as_i64().and_then(num::cast::<i64, i32>).is_none() {
                     ret_type_mismatch!("int32", stack);
                 }
             }
@@ -324,11 +305,7 @@ impl<'a> SubMessage<'a> {
                 }
             }
             Type::Uint32 => {
-                if value
-                    .as_u64()
-                    .and_then(|f| num::cast::<u64, u32>(f))
-                    .is_none()
-                {
+                if value.as_u64().and_then(num::cast::<u64, u32>).is_none() {
                     ret_type_mismatch!("uint32", stack);
                 }
             }
@@ -338,11 +315,7 @@ impl<'a> SubMessage<'a> {
                 }
             }
             Type::Sint32 => {
-                if value
-                    .as_i64()
-                    .and_then(|f| num::cast::<i64, i32>(f))
-                    .is_none()
-                {
+                if value.as_i64().and_then(num::cast::<i64, i32>).is_none() {
                     ret_type_mismatch!("suint32", stack);
                 }
             }
@@ -359,7 +332,7 @@ impl<'a> SubMessage<'a> {
             }
             Type::Message(msg_type) => {
                 if !ignore_msg {
-                    let msg = match self.ctx.relate_message(&msg_type) {
+                    let msg = match self.ctx.relate_message(msg_type) {
                         Some(t) => t,
                         _ => {
                             ret_invalid_type!(stack);
@@ -386,7 +359,7 @@ impl<'a> SubMessage<'a> {
         }
     }
 
-    fn encode_check<'b>(&self, stack: &mut Vec<(*const u8, usize)>) -> EncodeResult {
+    fn encode_check(&self, stack: &mut Vec<(*const u8, usize)>) -> EncodeResult {
         for field in &self.message.fields {
             stack.push((field.json_name.as_ptr(), field.json_name.len()));
 
@@ -427,12 +400,10 @@ impl<'a> SubMessage<'a> {
                     };
                     // get array
                     if value.is_array() {
-                        let mut idx = 0;
-                        for value_item in value.as_array().unwrap() {
+                        for (idx, value_item) in value.as_array().unwrap().iter().enumerate() {
                             let str = format!("{}", idx);
                             stack.push((str.as_ptr(), str.len()));
                             self.check_single_value(&t, value_item, stack, idx != 0)?;
-                            idx += 1;
                             stack.pop();
                         }
                     }
@@ -479,7 +450,7 @@ macro_rules! wrap_encoded_len {
             RepeatedType::Packed => {
                 if !$value.is_null() {
                     let arr = $value.as_array().unwrap();
-                    let k = arr.iter().filter_map(|v| $f(v)).collect::<Vec<_>>();
+                    let k = arr.iter().filter_map($f).collect::<Vec<_>>();
                     prost::encoding::$s::encoded_len_packed($tag, &k)
                 } else {
                     0
@@ -502,7 +473,7 @@ macro_rules! wrap_encoded_len_nopack {
             RepeatedType::Repeated => {
                 if !$value.is_null() {
                     let arr = $value.as_array().unwrap();
-                    let k = arr.iter().filter_map(|v| $f(v)).collect::<Vec<_>>();
+                    let k = arr.iter().filter_map($f).collect::<Vec<_>>();
                     prost::encoding::$s::encoded_len_repeated($tag, &k)
                 } else {
                     0
@@ -522,7 +493,7 @@ macro_rules! wrap_encode {
             RepeatedType::Packed => {
                 if !$value.is_null() {
                     let arr = $value.as_array().unwrap();
-                    let k = arr.iter().filter_map(|v| $f(v)).collect::<Vec<_>>();
+                    let k = arr.iter().filter_map($f).collect::<Vec<_>>();
                     prost::encoding::$s::encode_packed($tag, &k, $buf);
                 }
             }
@@ -541,7 +512,7 @@ macro_rules! wrap_encode_nopack {
             RepeatedType::Repeated => {
                 if !$value.is_null() {
                     let arr = $value.as_array().unwrap();
-                    let k = arr.iter().filter_map(|v| $f(v)).collect::<Vec<_>>();
+                    let k = arr.iter().filter_map($f).collect::<Vec<_>>();
                     prost::encoding::$s::encode_repeated($tag, &k, $buf)
                 }
             }
@@ -569,9 +540,9 @@ macro_rules! wrap_merge {
                     Err(e)
                 } else {
                     val.into_iter()
-                        .map(|v| $f(v))
+                        .map($f)
                         .collect::<std::result::Result<Vec<_>, DecodeError>>()
-                        .map(|v| serde_json::Value::Array(v))
+                        .map(serde_json::Value::Array)
                 }
             }
         }
@@ -590,7 +561,7 @@ fn v_as_f64(value: &serde_json::Value) -> Option<f64> {
 }
 #[inline]
 fn v_as_f32(value: &serde_json::Value) -> Option<f32> {
-    value.as_f64().and_then(|v| num::cast(v))
+    value.as_f64().and_then(num::cast)
 }
 #[inline]
 fn v_as_u64(value: &serde_json::Value) -> Option<u64> {
@@ -598,7 +569,7 @@ fn v_as_u64(value: &serde_json::Value) -> Option<u64> {
 }
 #[inline]
 fn v_as_u32(value: &serde_json::Value) -> Option<u32> {
-    value.as_u64().and_then(|v| num::cast(v))
+    value.as_u64().and_then(num::cast)
 }
 #[inline]
 fn v_as_i64(value: &serde_json::Value) -> Option<i64> {
@@ -606,7 +577,7 @@ fn v_as_i64(value: &serde_json::Value) -> Option<i64> {
 }
 #[inline]
 fn v_as_i32(value: &serde_json::Value) -> Option<i32> {
-    value.as_i64().and_then(|v| num::cast(v))
+    value.as_i64().and_then(num::cast)
 }
 #[inline]
 fn v_as_bool(value: &serde_json::Value) -> Option<bool> {
@@ -617,7 +588,7 @@ fn v_as_bytes(value: &serde_json::Value) -> Option<::bytes::Bytes> {
     value
         .as_str()
         .and_then(|v| base64::decode(v).ok())
-        .map(|v| ::bytes::Bytes::from(v))
+        .map(::bytes::Bytes::from)
 }
 #[inline]
 fn v_as_string(value: &serde_json::Value) -> Option<String> {
@@ -811,13 +782,13 @@ type DecodeResult = std::result::Result<serde_json::Value, DecodeError>;
 fn f64_to_v(f: f64) -> DecodeResult {
     serde_json::Number::from_f64(f)
         .ok_or_else(|| DecodeError::new(""))
-        .map(|v| serde_json::Value::Number(v))
+        .map(serde_json::Value::Number)
 }
 #[inline]
 fn f32_to_v(f: f32) -> DecodeResult {
     serde_json::Number::from_f64(f as f64)
         .ok_or_else(|| DecodeError::new(""))
-        .map(|v| serde_json::Value::Number(v))
+        .map(serde_json::Value::Number)
 }
 #[inline]
 fn i64_to_v(f: i64) -> DecodeResult {
@@ -949,25 +920,24 @@ impl<'a> Message for SubMessageMut<'a> {
     fn clear(&mut self) {}
 }
 
-impl Into<serde_json::Value> for AnyMessage {
-    fn into(self) -> serde_json::Value {
-        self.value
-    }
-}
-
 impl AnyMessage {
     pub fn new_decode(ctx: AnyMessageContext) -> Self {
         Self {
             value: serde_json::Value::Object(serde_json::Map::new()),
             msg_name: None,
-            ctx: ctx.clone(),
+            ctx,
         }
     }
+
+    pub fn value(self) -> serde_json::Value {
+        self.value
+    }
+
     pub fn new_encode(value: serde_json::Value, ctx: AnyMessageContext) -> Self {
         Self {
             value,
             msg_name: None,
-            ctx: ctx.clone(),
+            ctx,
         }
     }
 
@@ -996,8 +966,7 @@ impl AnyMessage {
         }
     }
     pub fn encode_check(&self) -> EncodeResult {
-        let mut stack = Vec::new();
-        stack.push(("".as_ptr(), 0));
+        let mut stack = vec![("".as_ptr(), 0)];
         self.root().encode_check(&mut stack)
     }
 }
@@ -1065,7 +1034,7 @@ impl tonic::codec::Codec for AnyProstCodec {
 
     fn encoder(&mut self) -> Self::Encoder {
         AnyProstEncoder {
-            ctx: self.ctx.clone(),
+            _ctx: self.ctx.clone(),
             msg_name: self.encode_msg_name.clone(),
         }
     }
@@ -1080,7 +1049,7 @@ impl tonic::codec::Codec for AnyProstCodec {
 
 #[derive(Debug, Clone, Default)]
 pub struct AnyProstEncoder {
-    ctx: AnyMessageContext,
+    _ctx: AnyMessageContext,
     msg_name: String,
 }
 

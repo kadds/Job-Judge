@@ -17,7 +17,7 @@ pub mod session {
         tonic::include_proto!("session.rpc");
     }
 }
-pub const FILE_DESCRIPTOR_SET: &'static [u8] = tonic::include_file_descriptor_set!("descriptor");
+pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("descriptor");
 
 use session::rpc::session_svr_server::{SessionSvr, SessionSvrServer};
 use session::rpc::*;
