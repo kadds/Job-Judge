@@ -1,6 +1,5 @@
 fn main() {
-    let descriptor_path =
-        std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("descriptor.bin");
+    let descriptor_path = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("descriptor.bin");
     tonic_build::configure()
         .build_server(false)
         .build_client(true)

@@ -104,12 +104,14 @@ impl AnyMessageContext {
     pub fn relate(&self, name: &str) -> Option<&CommonType> {
         self.relate_message.as_ref().and_then(|v| v.get(name))
     }
+
     pub fn relate_message(&self, name: &str) -> Option<&MessageType> {
         self.relate(name).and_then(|v| match v {
             CommonType::Message(msg) => Some(msg),
             CommonType::Enum(_) => None,
         })
     }
+
     pub fn relate_enum(&self, name: &str) -> Option<&EnumType> {
         self.relate(name).and_then(|v| match v {
             CommonType::Message(_) => None,
@@ -223,10 +225,7 @@ impl<'a> SubMessage<'a> {
             if let Some(val) = value.as_i64().and_then(num::cast::<i64, i32>) {
                 e.enums.iter().find(|v| v.pos == val).map(|v| v.pos)
             } else {
-                value
-                    .as_str()
-                    .and_then(|f| e.enums.iter().find(|v| v.name == f))
-                    .map(|v| v.pos)
+                value.as_str().and_then(|f| e.enums.iter().find(|v| v.name == f)).map(|v| v.pos)
             }
         } else {
             None
@@ -346,6 +345,7 @@ impl<'a> SubMessage<'a> {
         }
         Ok(())
     }
+
     fn repeated_type(&self, field: &Field) -> RepeatedType {
         match field.label {
             Label::Repeated => {
@@ -417,17 +417,14 @@ impl<'a> SubMessage<'a> {
 }
 
 impl<'a> SubMessageMut<'a> {
-    fn child(
-        &self,
-        message: &'a MessageType,
-        value: &'a mut serde_json::Value,
-    ) -> SubMessageMut<'a> {
+    fn child(&self, message: &'a MessageType, value: &'a mut serde_json::Value) -> SubMessageMut<'a> {
         Self {
             value,
             message,
             ctx: self.ctx.clone(),
         }
     }
+
     fn repeated_type(&self, field: &Field) -> RepeatedType {
         match field.label {
             Label::Repeated => {
@@ -534,9 +531,7 @@ macro_rules! wrap_merge {
             }
             _ => {
                 let mut val = Vec::new();
-                if let Err(e) =
-                    prost::encoding::$s::merge_repeated($wire_type, &mut val, $buf, $ctx)
-                {
+                if let Err(e) = prost::encoding::$s::merge_repeated($wire_type, &mut val, $buf, $ctx) {
                     Err(e)
                 } else {
                     val.into_iter()
@@ -585,10 +580,7 @@ fn v_as_bool(value: &serde_json::Value) -> Option<bool> {
 }
 #[inline]
 fn v_as_bytes(value: &serde_json::Value) -> Option<::bytes::Bytes> {
-    value
-        .as_str()
-        .and_then(|v| base64::decode(v).ok())
-        .map(::bytes::Bytes::from)
+    value.as_str().and_then(|v| base64::decode(v).ok()).map(::bytes::Bytes::from)
 }
 #[inline]
 fn v_as_string(value: &serde_json::Value) -> Option<String> {
@@ -676,13 +668,7 @@ impl<'a> Message for SubMessage<'a> {
         }
     }
 
-    fn merge_field<B>(
-        &mut self,
-        _: u32,
-        _: WireType,
-        _: &mut B,
-        _: DecodeContext,
-    ) -> Result<(), DecodeError>
+    fn merge_field<B>(&mut self, _: u32, _: WireType, _: &mut B, _: DecodeContext) -> Result<(), DecodeError>
     where
         B: Buf,
         Self: Sized,
@@ -881,10 +867,7 @@ impl<'a> Message for SubMessageMut<'a> {
                     let msg = match self.ctx.relate_message(&msg_type) {
                         Some(t) => t,
                         _ => {
-                            return Err(DecodeError::new(format!(
-                                "not found message {}",
-                                msg_type
-                            )));
+                            return Err(DecodeError::new(format!("not found message {}", msg_type)));
                         }
                     };
                     let mut value = Value::Object(Map::new());
@@ -947,24 +930,20 @@ impl AnyMessage {
 
     fn root(&self) -> SubMessage {
         SubMessage {
-            message: self
-                .ctx
-                .relate_message(self.msg_name.as_ref().unwrap())
-                .unwrap(),
+            message: self.ctx.relate_message(self.msg_name.as_ref().unwrap()).unwrap(),
             value: &self.value,
             ctx: self.ctx.clone(),
         }
     }
+
     fn root_mut(&mut self) -> SubMessageMut {
         SubMessageMut {
-            message: self
-                .ctx
-                .relate_message(self.msg_name.as_ref().unwrap())
-                .unwrap(),
+            message: self.ctx.relate_message(self.msg_name.as_ref().unwrap()).unwrap(),
             value: &mut self.value,
             ctx: self.ctx.clone(),
         }
     }
+
     pub fn encode_check(&self) -> EncodeResult {
         let mut stack = vec![("".as_ptr(), 0)];
         self.root().encode_check(&mut stack)
@@ -1024,13 +1003,10 @@ impl AnyProstCodec {
 }
 
 impl tonic::codec::Codec for AnyProstCodec {
-    type Encode = AnyMessage;
-
     type Decode = AnyMessage;
-
-    type Encoder = AnyProstEncoder;
-
     type Decoder = AnyProstDecoder;
+    type Encode = AnyMessage;
+    type Encoder = AnyProstEncoder;
 
     fn encoder(&mut self) -> Self::Encoder {
         AnyProstEncoder {
@@ -1054,18 +1030,12 @@ pub struct AnyProstEncoder {
 }
 
 impl tonic::codec::Encoder for AnyProstEncoder {
+    type Error = tonic::Status;
     type Item = AnyMessage;
 
-    type Error = tonic::Status;
-
-    fn encode(
-        &mut self,
-        mut item: Self::Item,
-        buf: &mut tonic::codec::EncodeBuf<'_>,
-    ) -> Result<(), Self::Error> {
+    fn encode(&mut self, mut item: Self::Item, buf: &mut tonic::codec::EncodeBuf<'_>) -> Result<(), Self::Error> {
         item.set_message_target(self.msg_name.clone());
-        item.encode(buf)
-            .expect("Message only errors if not enough space");
+        item.encode(buf).expect("Message only errors if not enough space");
 
         Ok(())
     }
@@ -1078,13 +1048,10 @@ pub struct AnyProstDecoder {
 }
 
 impl tonic::codec::Decoder for AnyProstDecoder {
-    type Item = AnyMessage;
     type Error = tonic::Status;
+    type Item = AnyMessage;
 
-    fn decode(
-        &mut self,
-        buf: &mut tonic::codec::DecodeBuf<'_>,
-    ) -> Result<Option<Self::Item>, Self::Error> {
+    fn decode(&mut self, buf: &mut tonic::codec::DecodeBuf<'_>) -> Result<Option<Self::Item>, Self::Error> {
         let mut message = AnyMessage::new_decode(self.ctx.clone());
         message.set_message_target(self.msg_name.clone());
         let item = message

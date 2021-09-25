@@ -23,10 +23,7 @@ impl Module {
             match change {
                 discover::Change::Add((_, address)) | discover::Change::Update((_, address)) => {
                     let endpoint = match Endpoint::from_shared(format!("http://{}", address)) {
-                        Ok(v) => v
-                            .timeout(Duration::from_secs(5))
-                            .concurrency_limit(32)
-                            .tcp_nodelay(true),
+                        Ok(v) => v.timeout(Duration::from_secs(5)).concurrency_limit(32).tcp_nodelay(true),
                         Err(err) => {
                             error!("error uri {}", err);
                             continue;
@@ -77,11 +74,8 @@ impl Module {
     pub fn channel(&self) -> Channel {
         self.channel.clone()
     }
-    async fn make_config(
-        module: String,
-        config: Arc<MicroServiceConfig>,
-        rx: watch::Receiver<()>,
-    ) -> Arc<Self> {
+
+    async fn make_config(module: String, config: Arc<MicroServiceConfig>, rx: watch::Receiver<()>) -> Arc<Self> {
         let (channel, sender) = Channel::balance_channel(100);
         let discover = discover::ConfigDiscover::new(config.discover.file.clone().unwrap());
         let m = Arc::new(Module {
@@ -91,17 +85,12 @@ impl Module {
         tokio::spawn(m.clone().discover(config.discover.ttl, rx, sender));
         m
     }
-    async fn make_k8s(
-        module: String,
-        config: Arc<MicroServiceConfig>,
-        rx: watch::Receiver<()>,
-    ) -> Arc<Self> {
+
+    async fn make_k8s(module: String, config: Arc<MicroServiceConfig>, rx: watch::Receiver<()>) -> Arc<Self> {
         let (channel, sender) = Channel::balance_channel(100);
-        let discover = discover::K8sDiscover::make(
-            config.discover.suffix.to_owned(),
-            config.discover.name_server.to_owned(),
-        )
-        .await;
+        let discover =
+            discover::K8sDiscover::make(config.discover.suffix.to_owned(), config.discover.name_server.to_owned())
+                .await;
         let m = Arc::new(Module {
             channel,
             module_discover: discover::ModuleDiscover::new(Box::new(discover), module),
@@ -109,11 +98,8 @@ impl Module {
         tokio::spawn(m.clone().discover(config.discover.ttl, rx, sender));
         m
     }
-    pub async fn make(
-        module: String,
-        config: Arc<MicroServiceConfig>,
-        rx: watch::Receiver<()>,
-    ) -> Arc<Self> {
+
+    pub async fn make(module: String, config: Arc<MicroServiceConfig>, rx: watch::Receiver<()>) -> Arc<Self> {
         if config.discover.file.is_none() {
             Self::make_k8s(module, config, rx).await
         } else {

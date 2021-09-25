@@ -57,13 +57,7 @@ pub async fn login(ctx: Context, form: Json<LoginForm>) -> impl Responder {
 pub async fn logout(ctx: Context, http: HttpRequest) -> impl Responder {
     let mut cli: SessionSvrCli = ctx.server.clone().client().await;
     let req = session::rpc::InvalidSessionReq {
-        key: http
-            .headers()
-            .get("TOKEN")
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_owned(),
+        key: http.headers().get("TOKEN").unwrap().to_str().unwrap().to_owned(),
     };
     let _ = check_rpc!(cli.invalid_session(req).await);
     let json = json!({});

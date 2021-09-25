@@ -7,11 +7,7 @@ type Result<T> = std::result::Result<T, Error>;
 #[async_trait]
 pub trait Discover {
     async fn get_from_module(&self, module_name: &str) -> Result<Vec<(String, SocketAddr)>>;
-    async fn get_from_server(
-        &self,
-        module_name: &str,
-        server_name: &str,
-    ) -> Result<Option<SocketAddr>>;
+    async fn get_from_server(&self, module_name: &str, server_name: &str) -> Result<Option<SocketAddr>>;
 }
 
 pub mod config;
@@ -39,6 +35,7 @@ impl ModuleDiscover {
             module,
         }
     }
+
     pub async fn watch(&self) -> Result<Vec<Change>> {
         let res = self.discover.get_from_module(self.module.as_ref()).await?;
         let mut map = HashMap::new();

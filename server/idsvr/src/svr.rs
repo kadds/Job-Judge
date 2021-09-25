@@ -77,21 +77,16 @@ impl DataSource for DatabaseDataSource {
                 .await?;
         bizid.ok_or(GenIdError::InvalidBiz)
     }
+
     async fn save(&self, biz_ids: &table::BizIds) -> Result<(), GenIdError> {
-        let c = sqlx::query(
-            "UPDATE biz_ids_tbl set value=$1, version=$2 where biz_id=$3 and version=$4",
-        )
-        .bind(biz_ids.value)
-        .bind(biz_ids.version + 1)
-        .bind(biz_ids.biz_id)
-        .bind(biz_ids.version)
-        .execute(&self.pool)
-        .await?;
-        if c.rows_affected() == 0 {
-            Err(GenIdError::VersionFail)
-        } else {
-            Ok(())
-        }
+        let c = sqlx::query("UPDATE biz_ids_tbl set value=$1, version=$2 where biz_id=$3 and version=$4")
+            .bind(biz_ids.value)
+            .bind(biz_ids.version + 1)
+            .bind(biz_ids.biz_id)
+            .bind(biz_ids.version)
+            .execute(&self.pool)
+            .await?;
+        if c.rows_affected() == 0 { Err(GenIdError::VersionFail) } else { Ok(()) }
     }
 }
 
@@ -134,16 +129,11 @@ impl DataSource for MemoryDataSource {
 
 macro_rules! cas {
     ($t: expr, $old: expr, $new: expr) => {
-        $t.compare_exchange($old, $new, Ordering::Acquire, Ordering::Relaxed)
-            .is_ok()
+        $t.compare_exchange($old, $new, Ordering::Acquire, Ordering::Relaxed).is_ok()
     };
 }
 
-async fn prefetch<T: DataSource>(
-    source: Arc<T>,
-    biz: i32,
-    vec: Arc<[IdAllocInfo]>,
-) -> Result<(), GenIdError> {
+async fn prefetch<T: DataSource>(source: Arc<T>, biz: i32, vec: Arc<[IdAllocInfo]>) -> Result<(), GenIdError> {
     let u = vec.get(biz as usize).unwrap();
     let mut bizid = match source.fetch(biz).await {
         Ok(v) => v,
@@ -172,11 +162,7 @@ async fn prefetch<T: DataSource>(
     Ok(())
 }
 
-async fn gen_id<T: DataSource>(
-    source: Arc<T>,
-    biz: i32,
-    vec: Arc<[IdAllocInfo]>,
-) -> Result<i64, GenIdError> {
+async fn gen_id<T: DataSource>(source: Arc<T>, biz: i32, vec: Arc<[IdAllocInfo]>) -> Result<i64, GenIdError> {
     const TRY_MAX_TIMES: usize = 20;
     if biz >= MAX_BIZ_ID {
         return Err(GenIdError::InvalidBiz);
@@ -214,10 +200,7 @@ async fn gen_id<T: DataSource>(
         }
         last_max = max;
         if times >= TRY_MAX_TIMES / 2 {
-            sleep(Duration::from_millis(
-                20 * (times - TRY_MAX_TIMES / 2 + 1) as u64,
-            ))
-            .await;
+            sleep(Duration::from_millis(20 * (times - TRY_MAX_TIMES / 2 + 1) as u64)).await;
         }
         trace!("gen_id try next times");
     }
@@ -351,10 +334,7 @@ async fn gen_snowflake_seq(data: &SnowflakeData) -> Result<i64, GenSnowflakeSeqE
             }
         }
         if times >= TRY_MAX_TIMES / 2 {
-            sleep(Duration::from_millis(
-                (times - TRY_MAX_TIMES / 2 + 1) as u64,
-            ))
-            .await;
+            sleep(Duration::from_millis((times - TRY_MAX_TIMES / 2 + 1) as u64)).await;
         }
         trace!("gen_snowflake try next times");
     }
@@ -366,10 +346,7 @@ impl<T> IdSvr for IdSvrImpl<T>
 where
     T: DataSource,
 {
-    async fn create_id(
-        &self,
-        request: Request<CreateIdReq>,
-    ) -> Result<Response<CreateIdRsp>, Status> {
+    async fn create_id(&self, request: Request<CreateIdReq>) -> Result<Response<CreateIdRsp>, Status> {
         let req = request.into_inner();
         let id = match gen_id(self.data_source.clone(), req.biz, self.res.clone()).await {
             Ok(v) => v,
@@ -380,10 +357,8 @@ where
         };
         Ok(Response::new(CreateIdRsp { id }))
     }
-    async fn create_seq(
-        &self,
-        _request: Request<CreateSeqReq>,
-    ) -> Result<Response<CreateSeqRsp>, Status> {
+
+    async fn create_seq(&self, _request: Request<CreateSeqReq>) -> Result<Response<CreateSeqRsp>, Status> {
         let id = match gen_snowflake_seq(&self.data).await {
             Ok(v) => v,
             Err(err) => {
@@ -399,12 +374,7 @@ pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
     let replica_id = server.config().replica_id.expect("not found replica id");
     assert!(replica_id < MAX_REPLICA_ID);
     let connections: u32 = 10;
-    let database_url = server
-        .config()
-        .comm_database
-        .url
-        .clone()
-        .expect("not found comm database url");
+    let database_url = server.config().comm_database.url.clone().expect("not found comm database url");
 
     let pool = PgPoolOptions::new()
         .max_connections(connections)

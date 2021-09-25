@@ -67,17 +67,12 @@ impl Discover for K8sDiscover {
                     .rdata()
                     .to_ip_addr()
                     .map(|v| (record.name().to_string(), SocketAddr::new(v, 11100)))
-                    .ok_or_else(|| {
-                        std::io::Error::new(std::io::ErrorKind::InvalidData, "not valid ip addr")
-                    })
+                    .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "not valid ip addr"))
             })
             .collect()
     }
-    async fn get_from_server(
-        &self,
-        module_name: &str,
-        server_name: &str,
-    ) -> Result<Option<SocketAddr>> {
+
+    async fn get_from_server(&self, module_name: &str, server_name: &str) -> Result<Option<SocketAddr>> {
         let dns_url = format!("{}.{}.{}", server_name, module_name, self.suffix);
         if let Some(record) = self
             .client
@@ -88,10 +83,7 @@ impl Discover for K8sDiscover {
             .answers()
             .first()
         {
-            return Ok(record
-                .rdata()
-                .to_ip_addr()
-                .map(|v| SocketAddr::new(v, 11100)));
+            return Ok(record.rdata().to_ip_addr().map(|v| SocketAddr::new(v, 11100)));
         }
         Ok(None)
     }

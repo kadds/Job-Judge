@@ -39,18 +39,13 @@ impl Discover for ConfigDiscover {
         }
         Err(Error::from(std::io::ErrorKind::InvalidInput))
     }
-    async fn get_from_server(
-        &self,
-        module_name: &str,
-        server_name: &str,
-    ) -> Result<Option<SocketAddr>> {
+
+    async fn get_from_server(&self, module_name: &str, server_name: &str) -> Result<Option<SocketAddr>> {
         let bytes = tokio::fs::read(&self.config_file).await?;
         let config: Config = toml::from_slice(&bytes)?;
         if let Some(v) = config.modules.get(module_name) {
             return if let Some(v) = v.get(server_name) {
-                Ok(Some(v.address.parse().map_err(|e| {
-                    Error::new(std::io::ErrorKind::InvalidData, e)
-                })?))
+                Ok(Some(v.address.parse().map_err(|e| Error::new(std::io::ErrorKind::InvalidData, e))?))
             } else {
                 Ok(None)
             };

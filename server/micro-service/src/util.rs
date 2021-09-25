@@ -3,9 +3,7 @@ use rand::{prelude::*, thread_rng};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn current_ts() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |v| v.as_millis() as u64)
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |v| v.as_millis() as u64)
 }
 
 pub fn gen_nid() -> u64 {

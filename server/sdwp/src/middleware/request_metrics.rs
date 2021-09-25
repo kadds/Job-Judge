@@ -25,11 +25,11 @@ where
     B: MessageBody,
     S::Future: 'static,
 {
-    type Response = ServiceResponse<B>;
     type Error = Error;
-    type InitError = ();
-    type Transform = RequestMetricsMiddleware<S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
+    type InitError = ();
+    type Response = ServiceResponse<B>;
+    type Transform = RequestMetricsMiddleware<S>;
 
     fn new_transform(&self, service: S) -> Self::Future {
         ok(RequestMetricsMiddleware { service })
@@ -46,9 +46,9 @@ where
     B: MessageBody,
     S::Future: 'static,
 {
-    type Response = ServiceResponse<B>;
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Response = ServiceResponse<B>;
 
     fn poll_ready(&self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
@@ -63,9 +63,7 @@ where
             let end = Instant::now();
             let cost = format!("{}ms", (end - t).as_millis());
             let cost = HeaderValue::from_maybe_shared(cost).unwrap();
-            res.response_mut()
-                .headers_mut()
-                .append(HeaderName::from_static("cost"), cost);
+            res.response_mut().headers_mut().append(HeaderName::from_static("cost"), cost);
             Ok(res)
         })
     }

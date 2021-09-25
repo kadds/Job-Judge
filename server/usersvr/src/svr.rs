@@ -33,11 +33,7 @@ const PEPPER: &str = "&cv.98SKbSadfd=a8Dz0=";
 fn random_salt() -> String {
     let mut rng = rand::thread_rng();
     let len = rng.gen_range(25..30);
-    CHARS
-        .chars()
-        .choose_multiple(&mut rng, len)
-        .into_iter()
-        .collect()
+    CHARS.chars().choose_multiple(&mut rng, len).into_iter().collect()
 }
 
 fn make_password_crypto(pwd: &str, salt: &str) -> String {
@@ -50,10 +46,7 @@ fn make_password_crypto(pwd: &str, salt: &str) -> String {
 
 #[tonic::async_trait]
 impl UserSvr for UserSvrImpl {
-    async fn create_user(
-        &self,
-        request: Request<CreateUserReq>,
-    ) -> Result<Response<CreateUserRsp>, Status> {
+    async fn create_user(&self, request: Request<CreateUserReq>) -> Result<Response<CreateUserRsp>, Status> {
         let req = request.into_inner();
         let salt = random_salt();
         let pwd = req.password;
@@ -85,23 +78,19 @@ impl UserSvr for UserSvrImpl {
         Ok(Response::new(CreateUserRsp { id }))
     }
 
-    async fn valid_user(
-        &self,
-        request: Request<ValidUserReq>,
-    ) -> Result<Response<ValidUserRsp>, Status> {
+    async fn valid_user(&self, request: Request<ValidUserReq>) -> Result<Response<ValidUserRsp>, Status> {
         let req = request.into_inner();
-        let res: Option<SqlRow> =
-            match sqlx::query("SELECT id, password, salt from user_tbl where username=$1")
-                .bind(&req.username)
-                .fetch_optional(&self.pool)
-                .await
-            {
-                Ok(v) => v,
-                Err(err) => {
-                    error!("execute sql failed when select. error {}", err);
-                    return Err(Status::unavailable("query database fail"));
-                }
-            };
+        let res: Option<SqlRow> = match sqlx::query("SELECT id, password, salt from user_tbl where username=$1")
+            .bind(&req.username)
+            .fetch_optional(&self.pool)
+            .await
+        {
+            Ok(v) => v,
+            Err(err) => {
+                error!("execute sql failed when select. error {}", err);
+                return Err(Status::unavailable("query database fail"));
+            }
+        };
 
         if let Some(res) = res {
             let pwd_db: String = res.get(1);
@@ -126,18 +115,17 @@ impl UserSvr for UserSvrImpl {
 
     async fn get_user(&self, request: Request<GetUserReq>) -> Result<Response<GetUserRsp>, Status> {
         let req = request.into_inner();
-        let res: Option<table::User> =
-            match sqlx::query_as::<_, table::User>("SELECT * from user_tbl where vid=$1")
-                .bind(&(req.id))
-                .fetch_optional(&self.pool)
-                .await
-            {
-                Ok(v) => v,
-                Err(err) => {
-                    error!("execute sql failed when select. error {}", err);
-                    return Err(Status::unavailable("query database fail"));
-                }
-            };
+        let res: Option<table::User> = match sqlx::query_as::<_, table::User>("SELECT * from user_tbl where vid=$1")
+            .bind(&(req.id))
+            .fetch_optional(&self.pool)
+            .await
+        {
+            Ok(v) => v,
+            Err(err) => {
+                error!("execute sql failed when select. error {}", err);
+                return Err(Status::unavailable("query database fail"));
+            }
+        };
         if let Some(user) = res {
             Ok(Response::new(GetUserRsp {
                 userinfo: Some(user::UserInfo {
@@ -153,24 +141,20 @@ impl UserSvr for UserSvrImpl {
         }
     }
 
-    async fn update_user(
-        &self,
-        request: Request<UpdateUserReq>,
-    ) -> Result<Response<UpdateUserRsp>, Status> {
+    async fn update_user(&self, request: Request<UpdateUserReq>) -> Result<Response<UpdateUserRsp>, Status> {
         let req = request.into_inner();
         let userinfo = req.userinfo.unwrap_or_default();
-        let res: Option<table::User> =
-            match sqlx::query_as::<_, table::User>("SELECT * from user_tbl where vid=$1")
-                .bind(&(userinfo.id))
-                .fetch_optional(&self.pool)
-                .await
-            {
-                Ok(v) => v,
-                Err(err) => {
-                    error!("execute sql failed when select. error {}", err);
-                    return Err(Status::unavailable("query database fail"));
-                }
-            };
+        let res: Option<table::User> = match sqlx::query_as::<_, table::User>("SELECT * from user_tbl where vid=$1")
+            .bind(&(userinfo.id))
+            .fetch_optional(&self.pool)
+            .await
+        {
+            Ok(v) => v,
+            Err(err) => {
+                error!("execute sql failed when select. error {}", err);
+                return Err(Status::unavailable("query database fail"));
+            }
+        };
         if let Some(user) = res {
             let avatar = match userinfo.avatar.len() {
                 0 => user.avatar,
@@ -180,13 +164,12 @@ impl UserSvr for UserSvrImpl {
                 0 => user.nickname,
                 _ => userinfo.nickname,
             };
-            if let Err(err) =
-                sqlx::query("UPDATE user_tbl set avatar=$1, set nickname=$2 where vid=$3")
-                    .bind(&avatar)
-                    .bind(&nickname)
-                    .bind(&user.id)
-                    .execute(&self.pool)
-                    .await
+            if let Err(err) = sqlx::query("UPDATE user_tbl set avatar=$1, set nickname=$2 where vid=$3")
+                .bind(&avatar)
+                .bind(&nickname)
+                .bind(&user.id)
+                .execute(&self.pool)
+                .await
             {
                 error!("execute sql failed when select. error {}", err);
                 return Err(Status::unavailable("query database fail"));
@@ -200,18 +183,17 @@ impl UserSvr for UserSvrImpl {
         request: Request<UpdatePasswordReq>,
     ) -> Result<Response<UpdatePasswordRsp>, Status> {
         let req = request.into_inner();
-        let res: Option<table::User> =
-            match sqlx::query_as::<_, table::User>("SELECT * from user_tbl where vid=$1")
-                .bind(&(req.id as i64))
-                .fetch_optional(&self.pool)
-                .await
-            {
-                Ok(v) => v,
-                Err(err) => {
-                    error!("execute sql failed when select. error {}", err);
-                    return Err(Status::unavailable("query database fail"));
-                }
-            };
+        let res: Option<table::User> = match sqlx::query_as::<_, table::User>("SELECT * from user_tbl where vid=$1")
+            .bind(&(req.id as i64))
+            .fetch_optional(&self.pool)
+            .await
+        {
+            Ok(v) => v,
+            Err(err) => {
+                error!("execute sql failed when select. error {}", err);
+                return Err(Status::unavailable("query database fail"));
+            }
+        };
         if let Some(user) = res {
             if make_password_crypto(&req.old_password, &user.salt) != user.password {
                 return Err(Status::internal("password is not match"));
@@ -219,13 +201,12 @@ impl UserSvr for UserSvrImpl {
 
             let new_salt = random_salt();
             let pwd_crypto = make_password_crypto(&req.password, &new_salt);
-            if let Err(err) =
-                sqlx::query("UPDATE user_tbl set password=$1, set salt=$2 where vid=$3")
-                    .bind(&pwd_crypto)
-                    .bind(&new_salt)
-                    .bind(&user.id)
-                    .execute(&self.pool)
-                    .await
+            if let Err(err) = sqlx::query("UPDATE user_tbl set password=$1, set salt=$2 where vid=$3")
+                .bind(&pwd_crypto)
+                .bind(&new_salt)
+                .bind(&user.id)
+                .execute(&self.pool)
+                .await
             {
                 error!("execute sql failed when select. error {}", err);
                 return Err(Status::unavailable("query database fail"));
@@ -239,12 +220,7 @@ impl UserSvr for UserSvrImpl {
 
 pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
     let connections: u32 = 10;
-    let database_url = server
-        .config()
-        .comm_database
-        .url
-        .clone()
-        .expect("not found comm database url");
+    let database_url = server.config().comm_database.url.clone().expect("not found comm database url");
 
     let pool = PgPoolOptions::new()
         .max_connections(connections)

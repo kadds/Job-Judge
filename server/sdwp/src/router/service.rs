@@ -78,10 +78,7 @@ pub async fn list_rpc(data: web::Data<AppData>, req: web::Query<ListRpcRequest>)
 }
 
 #[get("/rpc")]
-pub async fn rpc_detail(
-    data: web::Data<AppData>,
-    req: web::Query<RpcDetailRequest>,
-) -> impl Responder {
+pub async fn rpc_detail(data: web::Data<AppData>, req: web::Query<RpcDetailRequest>) -> impl Responder {
     let f = async || -> grpc::GrpcResult<RpcDetailResult> {
         let ctx = grpc::RequestContext::new(&data.config, &req.module, &req.instance).await?;
         if req.service.is_empty() {

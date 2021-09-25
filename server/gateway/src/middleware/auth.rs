@@ -26,11 +26,11 @@ where
     B: MessageBody,
     S::Future: 'static,
 {
-    type Response = ServiceResponse<B>;
     type Error = Error;
-    type InitError = ();
-    type Transform = AuthMiddleware<S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
+    type InitError = ();
+    type Response = ServiceResponse<B>;
+    type Transform = AuthMiddleware<S>;
 
     fn new_transform(&self, service: S) -> Self::Future {
         ok(AuthMiddleware { service })
@@ -47,9 +47,9 @@ where
     B: MessageBody,
     S::Future: 'static,
 {
-    type Response = ServiceResponse<B>;
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Response = ServiceResponse<B>;
 
     fn poll_ready(&self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
@@ -59,10 +59,7 @@ where
         let uri = req.uri();
         let server = req.app_data::<web::Data<AppData>>().unwrap().server.clone();
         let need_token = uri != "/user/login" && uri != "/user/register";
-        let token = req
-            .headers()
-            .get("TOKEN")
-            .map(|v| v.to_str().unwrap_or("").to_owned());
+        let token = req.headers().get("TOKEN").map(|v| v.to_str().unwrap_or("").to_owned());
 
         let fut = self.service.call(req);
         Box::pin(async move {

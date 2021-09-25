@@ -21,10 +21,8 @@ impl TestSvr for TestSvrImpl {
         log::info!("echo request");
         Ok(Response::new(EchoRsp {}))
     }
-    async fn message_echo(
-        &self,
-        request: Request<MessageEchoReq>,
-    ) -> Result<Response<MessageEchoRsp>, Status> {
+
+    async fn message_echo(&self, request: Request<MessageEchoReq>) -> Result<Response<MessageEchoRsp>, Status> {
         let req = request.into_inner();
         log::info!("message echo request {:?}", req);
         Ok(Response::new(MessageEchoRsp { pack: req.pack }))

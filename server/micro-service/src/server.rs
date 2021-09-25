@@ -91,18 +91,23 @@ impl Server {
     pub fn server_name(&self) -> String {
         self.config.meta.name.clone()
     }
+
     pub fn server_signal(&self) -> watch::Receiver<()> {
         self.rx.clone()
     }
+
     pub fn service_level(&self) -> ServiceLevel {
         self.config.meta.level.clone()
     }
+
     pub fn server_address(&self) -> String {
         self.config.meta.ip.clone()
     }
+
     pub fn config(&self) -> Arc<MicroServiceConfig> {
         self.config.clone()
     }
+
     pub async fn wait_stop_signal(&self) {
         let _ = self.rx.clone().changed().await;
     }
@@ -121,6 +126,7 @@ macro_rules! define_client {
             fn name() -> &'static str {
                 $name
             }
+
             fn make(ch: tonic::transport::Channel) -> $client {
                 $type::new(ch)
             }

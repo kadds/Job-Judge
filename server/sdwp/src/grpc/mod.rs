@@ -45,9 +45,7 @@ pub type GrpcResult<T> = std::result::Result<T, GrpcError>;
 
 async fn get_channel(addr: SocketAddr) -> GrpcResult<tonic::transport::Channel> {
     let endpoint = match tonic::transport::Endpoint::from_shared(format!("http://{}", addr)) {
-        Ok(v) => v
-            .timeout(std::time::Duration::from_secs(5))
-            .tcp_nodelay(true),
+        Ok(v) => v.timeout(std::time::Duration::from_secs(5)).tcp_nodelay(true),
         Err(err) => {
             error!("error uri {}", err);
             return Err(GrpcError::InvalidUri);
@@ -64,11 +62,8 @@ async fn get_module_address(
 ) -> Result<Vec<(String, SocketAddr)>, std::io::Error> {
     match cfg.discover_file.len() {
         0 => {
-            let d = discover::K8sDiscover::make(
-                cfg.discover_suffix.to_owned(),
-                cfg.discover_name_server.to_owned(),
-            )
-            .await;
+            let d =
+                discover::K8sDiscover::make(cfg.discover_suffix.to_owned(), cfg.discover_name_server.to_owned()).await;
             d.get_from_module(module).await
         }
         _ => {
@@ -86,11 +81,8 @@ async fn get_module_instance_address(
 ) -> Result<Option<SocketAddr>, std::io::Error> {
     match cfg.discover_file.len() {
         0 => {
-            let d = discover::K8sDiscover::make(
-                cfg.discover_suffix.to_owned(),
-                cfg.discover_name_server.to_owned(),
-            )
-            .await;
+            let d =
+                discover::K8sDiscover::make(cfg.discover_suffix.to_owned(), cfg.discover_name_server.to_owned()).await;
             d.get_from_server(module, name).await
         }
         _ => {

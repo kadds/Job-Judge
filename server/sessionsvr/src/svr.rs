@@ -47,16 +47,11 @@ fn to_content(key: &[u8], token: String) -> Result<Content, jwt::Error> {
 
 #[tonic::async_trait]
 impl SessionSvr for SessionSvrImpl {
-    async fn create_session(
-        &self,
-        request: Request<CreateSessionReq>,
-    ) -> Result<Response<CreateSessionRsp>, Status> {
+    async fn create_session(&self, request: Request<CreateSessionReq>) -> Result<Response<CreateSessionRsp>, Status> {
         let req = request.into_inner();
         let content = Content {
             timeout: req.timeout,
-            expire_at: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_or(0, |v| v.as_secs() as u64)
+            expire_at: SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |v| v.as_secs() as u64)
                 + req.timeout as u64,
             map: req.comm_data,
             uid: req.uid,
@@ -67,20 +62,13 @@ impl SessionSvr for SessionSvrImpl {
         }
     }
 
-    async fn get_session(
-        &self,
-        request: Request<GetSessionReq>,
-    ) -> Result<Response<GetSessionRsp>, Status> {
+    async fn get_session(&self, request: Request<GetSessionReq>) -> Result<Response<GetSessionRsp>, Status> {
         let req = request.into_inner();
         {
             let mut map = self.black_map.lock().await;
             if let Some(v) = map.get(&req.key) {
                 // delete timeout key
-                if *v
-                    <= SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .map_or(0, |v| v.as_secs() as u64)
-                {
+                if *v <= SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |v| v.as_secs() as u64) {
                     map.remove(&req.key);
                 }
                 return Err(Status::not_found("session key not found")); // in black list
@@ -96,10 +84,7 @@ impl SessionSvr for SessionSvrImpl {
         }
     }
 
-    async fn delay_session(
-        &self,
-        request: Request<DelaySessionReq>,
-    ) -> Result<Response<DelaySessionRsp>, Status> {
+    async fn delay_session(&self, request: Request<DelaySessionReq>) -> Result<Response<DelaySessionRsp>, Status> {
         let req = request.into_inner();
         let mut content = match to_content(&self.key, req.key) {
             Ok(content) => content,
@@ -123,15 +108,8 @@ impl SessionSvr for SessionSvrImpl {
             Ok(content) => content,
             Err(_) => return Ok(Response::new(InvalidSessionRsp {})),
         };
-        if content.expire_at
-            > SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_or(0, |v| v.as_secs() as u64)
-        {
-            self.black_map
-                .lock()
-                .await
-                .insert(req.key, content.expire_at);
+        if content.expire_at > SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |v| v.as_secs() as u64) {
+            self.black_map.lock().await.insert(req.key, content.expire_at);
         }
         Ok(Response::new(InvalidSessionRsp {}))
     }
