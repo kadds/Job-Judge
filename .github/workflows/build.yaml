@@ -23,6 +23,8 @@ jobs:
           profile: minimal
           toolchain: nightly
           target: x86_64-unknown-linux-musl
+          components: rustfmt, clippy
+          override: true
           default: true
       - name: build
         run: |

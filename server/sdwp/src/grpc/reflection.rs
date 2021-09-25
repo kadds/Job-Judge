@@ -277,8 +277,9 @@ impl<'a> SymbolQueryContext<'a> {
                 success = false;
                 let mut t = HashSet::new();
                 swap(&mut t, &mut self.require_types);
-
+                
                 for type_name in t {
+                    #[allow(clippy::map_entry)] 
                     if !self.relate.contains_key(&type_name) {
                         if let Some(t) = self.query_type(&type_name) {
                             self.relate.insert(type_name, t);
