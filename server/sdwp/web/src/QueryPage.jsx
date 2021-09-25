@@ -1,9 +1,11 @@
-import { Text, Checkbox, Toggle, CheckboxVisibility, Dropdown, DetailsList, DetailsListLayoutMode, SelectionMode, TextField, Separator, PrimaryButton, IconButton } from '@fluentui/react'
-import React, { useCallback, useEffect, useState } from 'react'
+import { Text, Checkbox, Toggle, CheckboxVisibility, Dropdown, Spinner, DetailsList, DetailsListLayoutMode, SelectionMode, TextField, Separator, PrimaryButton, IconButton, ContextualMenuItemType, Callout, Dialog, DialogFooter, DefaultButton, DialogType } from '@fluentui/react'
+import React, { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { list_rpc, get_rpc, invoke_rpc } from './api'
 import ui from './store/ui'
 import JsonView from './JsonView'
 import { motion, AnimatePresence } from "framer-motion"
+import { inject, observer } from 'mobx-react'
+import axios from 'axios'
 
 const message_variants = {
     initial: {
@@ -65,7 +67,7 @@ const NumTextBox = ({ type, data, dataUpdate, path }) => {
     const onGetErrorMessage = (value) => {
         const val = getValue(value)
         if (isNaN(val)) {
-            return 'Not an number'
+            return 'Not a number'
         }
         dataUpdate(val)
         return ''
@@ -90,38 +92,97 @@ const NumTextBox = ({ type, data, dataUpdate, path }) => {
         <div className='num-input'>
             <TextField onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set(null)}
                 value={input} onChange={onChange} validateOnLoad={false}
+                type="number"
                 validateOnFocusOut={true}
                 onGetErrorMessage={onGetErrorMessage} />
         </div>
     )
 }
 
-const StringTextBox = ({ data, dataUpdate, path }) => {
-    const onChange = (e, value) => {
-        dataUpdate(value)
-    }
-    let value = data
-    if (value === null) {
-        value = ''
-    }
-    return (
-        <TextField onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set(null)}
-            value={value} rows={3} onChange={onChange} multiline />
-    )
-}
+const stringMenu = [
+    {
+        key: 'Multi',
+        text: 'Multi-line',
+        iconProps: { iconName: 'MoreVertical' }
+    },
+    {
+        key: 'Single',
+        text: 'Single-line',
+        iconProps: { iconName: 'More' }
+    },
+    {
+        key: 'd0',
+        itemType: ContextualMenuItemType.Divider
+    },
+    {
+        key: 'Copy',
+        text: 'Copy',
+        iconProps: { iconName: 'Copy' }
+    },
+    {
+        key: 'Parse',
+        text: 'Parse',
+        iconProps: { iconName: 'FileTemplate' }
+    },
+    {
+        key: 'd1',
+        itemType: ContextualMenuItemType.Divider
+    },
+    {
+        key: 'From',
+        text: 'Load',
+        iconProps: { iconName: 'OpenFile' }
+    },
+]
 
-const BytesTextBox = ({ data, dataUpdate, path }) => {
+
+const StringTextBox = ({ data, dataUpdate, path, isBytes }) => {
+    const [multi, setMulti] = useState(false)
+    const ref = useRef()
     const onChange = (e, value) => {
         dataUpdate(value)
+    }
+    const onPreviewClick = () => {
+        ui.callout.set(data, ref.current)
+    }
+    const onMenuClick = (a, { key }) => {
+        if (key === 'Multi') {
+            setMulti(true)
+        } else if (key === 'Single') {
+            setMulti(false)
+        } else if (key === 'Copy') {
+            navigator.clipboard.writeText(data)
+        } else if (key === 'Parse') {
+            (async () => {
+                const text = await navigator.clipboard.readText()
+                if (text.indexOf('\n') >= 0) {
+                    setMulti(true)
+                }
+                dataUpdate(text)
+            })()
+        } else if (key === 'From') {
+            ui.dialog.open(`Select data from '${path}'`, result => {
+                dataUpdate(result)
+            })
+        } else {
+            console.error(key)
+        }
     }
     let value = data
     if (value === null) {
         value = ''
     }
     return (
-        <TextField
-            onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set(null)}
-            value={value} rows={3} onChange={onChange} multiline />
+        <div style={{ display: 'flex' }}>
+            <TextField onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set(null)}
+                value={value} rows={3} onChange={onChange} multiline={multi} />
+            <div className={'string-textbox-buttons ' + (multi ? 'multi' : 'single')}>
+                <IconButton menuProps={{ items: stringMenu.filter(items => items.key !== (multi ? 'Multi' : 'Single')), onItemClick: onMenuClick }} />
+                <span ref={ref}>
+                    <IconButton iconProps={{ iconName: 'Preview' }} onClick={onPreviewClick} />
+                </span>
+            </div>
+        </div>
     )
 }
 
@@ -132,7 +193,7 @@ const TypeInputBox = ({ type, info, data, dataUpdate, path }) => {
         )
     } else if (type.type === 'Bytes') {
         return (
-            <BytesTextBox data={data} dataUpdate={dataUpdate} path={path} />
+            <StringTextBox isBytes={true} data={data} dataUpdate={dataUpdate} path={path} />
         )
     } else if (type.type === 'Bool') {
         return (
@@ -293,7 +354,7 @@ const MessageRender = ({ info, message, data, dataUpdate, path }) => {
     )
 }
 
-const QueryPage = ({ api, tab }) => {
+const QueryPage = inject('store')(observer(({ store, api, tab }) => {
     const [rpcList, setRpcList] = useState([])
     const [serviceList, setServiceList] = useState([])
     const [serviceSelection, setServiceSelection] = useState(null)
@@ -306,6 +367,7 @@ const QueryPage = ({ api, tab }) => {
     const [requestData, setRequestData] = useState({})
     const [editJson, setEditJsonInner] = useState(false)
     const [cost, setCost] = useState(null)
+    const [dialogData, setDialogData] = useState({ uri: '', prefix: '', base64: null })
 
     const setEditJson = val => {
         setRequestData(JSON.parse(JSON.stringify(requestData)))
@@ -359,6 +421,58 @@ const QueryPage = ({ api, tab }) => {
             setCost({ client: delta, server: cost })
         })()
     }
+    const onInputDialog = () => {
+        let input = document.createElement('input')
+        input.type = 'file'
+        input.onchange = e => {
+            const file = e.target.files[0]
+            let reader = new FileReader()
+            reader.readAsDataURL(file)
+
+            reader.onload = () => {
+                const content = reader.result
+                let pos = content.indexOf(',')
+                let base64 = content
+                if (pos >= 0) {
+                    pos += 1
+                    base64 = content.substr(pos, content.length - pos)
+                    const prefix = content.substr(0, pos)
+                    setDialogData({ ...dialogData, prefix, base64, loading: false })
+                } else {
+                    setDialogData({ ...dialogData, prefix: '', base64, loading: false })
+                }
+            }
+            reader.onerror = (e) => {
+                ui.errors.push(file.name, -1, 'error load local file', e + '')
+            }
+            setDialogData({ uri: file.name, prefix: null, base64: null, loading: true })
+        }
+        input.click()
+    }
+    const onLoadURI = async () => {
+        setDialogData({ ...dialogData, loading: true, prefix: null, })
+        try {
+            const data = await axios.get(dialogData.uri, { responseType: 'blob', headers: { 'Access-Control-Allow-Origin': '*' } })
+            let reader = new window.FileReader()
+            reader.readAsDataURL(data.data)
+            reader.onload = () => {
+                const content = reader.result
+                let pos = content.indexOf(',')
+                let base64 = content
+                if (pos >= 0) {
+                    pos += 1
+                    base64 = content.substr(pos, content.length - pos)
+                    const prefix = content.substr(0, pos)
+                    setDialogData({ ...dialogData, prefix, base64, loading: false })
+                } else {
+                    setDialogData({ ...dialogData, prefix: '', base64, loading: false })
+                }
+            }
+        } catch (e) {
+            console.log(e.config)
+            ui.errors.push(e.config.url, -1, 'error load file', e + '')
+        }
+    }
     return (
         <div className='query-content'>
             <div className='query-list-wrapper'>
@@ -394,21 +508,24 @@ const QueryPage = ({ api, tab }) => {
             </div>
             <Separator vertical />
             <div className='query-main'>
-                <div><Text variant='large'>.{serviceSelection}.{method}</Text></div>
-                <div className='input'>
+                <div className='query-main-header'>
+                    <Text variant='large'>.{serviceSelection}.{method}</Text>
+                    <Toggle checked={editJson} onChange={() => setEditJson(!editJson)} inlineLabel label='View json' /></div>
+                <div className='input-content-container'>
                     {
                         rpcInfo && (
-                            <div>
-                                <Toggle checked={editJson} onChange={() => setEditJson(!editJson)} label='Edit json' />
-                                <div className={!editJson ? 'show' : 'hide'}>
-                                    <MessageRender path='' data={requestData} dataUpdate={data => setRequestData(JSON.parse(JSON.stringify(data)))} message={rpcInfo.request_typename} info={rpcInfo} />
-                                </div>
-                                <div className={editJson ? 'show' : 'hide'}>
-                                    <JsonView message={rpcInfo.request_typename} info={rpcInfo} json={requestData}
-                                        jsonUpdate={data => setRequestData(data)} editable />
+                            <Fragment>
+                                <div style={{ overflow: 'auto' }}>
+                                    <div className={!editJson ? 'show' : 'hide'}>
+                                        <MessageRender path='' data={requestData} dataUpdate={data => setRequestData(JSON.parse(JSON.stringify(data)))} message={rpcInfo.request_typename} info={rpcInfo} />
+                                    </div>
+                                    <div className={editJson ? 'show' : 'hide'}>
+                                        <JsonView message={rpcInfo.request_typename} info={rpcInfo} object={requestData}
+                                            objectUpdate={data => setRequestData(data)} editable />
+                                    </div>
                                 </div>
                                 <PrimaryButton onClick={() => onInvokeClick()} className='send-button' text='Send' />
-                            </div>
+                            </Fragment>
                         )
                     }
                 </div>
@@ -421,9 +538,47 @@ const QueryPage = ({ api, tab }) => {
                         <Text>Server side cost: {cost.server}ms</Text>
                     </div>
                 )}
-                <JsonView json={resultData} />
+                <JsonView object={resultData} />
             </div>
+            {store.ui.callout.data !== null && (
+                <Callout calloutMaxWidth='40%' target={store.ui.callout.target} onDismiss={() => ui.callout.clear()}>
+                    <div style={{ margin: 20 }}>
+                        <Text variant='xLargePlus' nowrap block> Preview </Text>
+                        <div style={{ marginTop: 20 }}>
+                            <img width='100%' src={'data:image/png;base64,' + store.ui.callout.data}></img>
+                        </div>
+                    </div>
+                </Callout>
+            )}
+            <Dialog
+                dialogContentProps={{ title: store.ui.dialog.hint, type: DialogType.normal }}
+                hidden={!store.ui.dialog.show}
+                onDismiss={() => ui.dialog.cancel()}
+                minWidth='40%'
+            >
+                <div className='inner-dialog'>
+                    <TextField inline label='URI' value={dialogData.uri} onChange={(e, data) => setDialogData({ ...dialogData, uri: data })} />
+                    <div className='dialog-buttons'>
+                        <DefaultButton text='Select local file' onClick={onInputDialog} />
+                        <DefaultButton text='Load uri' onClick={onLoadURI} />
+                    </div>
+                    <div className='dialog-preview'>
+                        {
+                            dialogData.loading && (<Spinner />)
+                        }
+                        {
+                            dialogData.prefix && (
+                                <img className='img-view' width='90%' src={dialogData.prefix + dialogData.base64} />
+                            )
+                        }
+                    </div>
+                </div>
+                <DialogFooter>
+                    <PrimaryButton onClick={() => ui.dialog.commit(dialogData.base64)} text="OK" />
+                    <DefaultButton onClick={() => ui.dialog.cancel()} text="Cancel" />
+                </DialogFooter>
+            </Dialog>
         </div >)
-}
+}))
 
 export default QueryPage

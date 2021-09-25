@@ -33,6 +33,9 @@ pub async fn create() -> (String, u64) {
 }
 
 pub async fn is_valid(token: &str) -> bool {
+    if token.is_empty() {
+        return false;
+    }
     let mut map = HASHMAP.lock().await;
     if let Some(time) = map.get(token) {
         if SystemTime::now()

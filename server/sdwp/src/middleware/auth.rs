@@ -68,9 +68,11 @@ where
             if need_token {
                 if let Some(token) = token {
                     if !token::is_valid(&token).await {
+                        log::error!("authorize fail");
                         return Err(error::ErrorUnauthorized("authorize fail"));
                     }
                 } else {
+                    log::error!("need authorize");
                     return Err(error::ErrorUnauthorized("need authorized"));
                 }
             }

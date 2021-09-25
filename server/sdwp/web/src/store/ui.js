@@ -126,6 +126,41 @@ let hint = observable({
     })
 })
 
-const ui = { tab, login, errors, hint }
+let callout = observable({
+    data: null,
+    target: null,
+    set: action((data, target) => {
+        callout.data = data
+        callout.target = target
+    }),
+    clear: action(() => {
+        callout.data = null
+        callout.target = null
+    })
+})
+
+let dialog = observable({
+    show: false,
+    hint: '',
+    callback: '',
+    open: action((hint, callback) => {
+        dialog.hint = hint
+        dialog.callback = callback
+        dialog.show = true
+    }),
+    commit: action((result) => {
+        dialog.show = false
+        dialog.callback(result)
+        dialog.callback = null
+        dialog.hint = ''
+    }),
+    cancel: action(() => {
+        dialog.show = false
+        dialog.callback = null
+        dialog.hint = ''
+    })
+})
+
+const ui = { tab, login, errors, hint, callout, dialog }
 
 export default ui

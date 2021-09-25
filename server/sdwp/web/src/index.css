@@ -237,11 +237,11 @@ code {
 
 .query-main {
   flex: 3 0 auto;
+  margin: 0 8px 0 8px;
   display: flex;
   flex-direction: column;
-  margin: 0 8px 0 8px;
-  overflow: auto;
   width: 0;
+  min-height: 0;
 }
 
 .field {
@@ -301,6 +301,7 @@ code {
   margin: 0 8px 0 8px;
   flex: 2 0 auto;
   width: 0;
+  overflow: auto;
 }
 
 .send-button {
@@ -358,4 +359,66 @@ code {
   display: flex;
   flex-direction: column;
   margin: 8px 4px;
+}
+
+.view-field {
+  display: flex;
+  margin: 0px 8px;
+}
+
+.field-vertical {
+  flex-direction: column;
+}
+
+.view-field-key {
+
+}
+
+.view-field-value {
+  margin-left: 8px;
+}
+
+.view-object {
+
+}
+
+.view-array {
+
+}
+
+.input-content-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.query-main-header {
+  flex: 0 0 auto;
+}
+
+.string-textbox-buttons {
+  display: flex;
+  flex-direction: row;
+}
+
+.string-textbox-buttons.multi {
+  flex-direction: column;
+}
+
+.callout {
+  padding: 20px;
+  background-color: #000;
+}
+
+.inner-dialog {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-buttons, .dialog-preview {
+  margin: 8px 4px;
+}
+
+.img-view {
+  min-width: 100px;
 }

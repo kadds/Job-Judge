@@ -7,7 +7,7 @@ let token = ''
 
 const instance = axios.create({
     baseURL: base_url,
-    timeout: 2000,
+    timeout: 5000,
     headers: { 'Access-Control-Allow-Origin': '*' }
 })
 
@@ -25,11 +25,15 @@ instance.interceptors.request.use(function (config) {
 instance.interceptors.response.use(function (response) {
     return response
 }, function (error) {
-    if (error.response.status === 401) {
+    const res = error.response
+    if (res && res.status === 401) {
         store.ui.login.show_dialog()
     } else {
-        const res = error.response
-        store.ui.errors.push(res.config.url, res.status, res.statusText, res.data)
+        if (res !== undefined) {
+            store.ui.errors.push(res.config.url, res.status, res.statusText, res.data)
+        } else {
+            store.ui.errors.push(error.config.url, -1, error.message, error.stack)
+        }
     }
     return Promise.reject(error)
 })
@@ -63,7 +67,7 @@ async function get_rpc(module, service, ins, method) {
 }
 
 async function invoke_rpc(module, service, ins, method, body) {
-    let resp = await instance.post(`/service/invoke`, { module, service, instance: ins, method, body })
+    let resp = await instance.post(`/service/invoke`, { module, service, instance: ins, method, body }, { timeout: 1000 * 60 })
     console.log(resp)
     return { data: resp.data, cost: parseInt(resp.headers.cost) }
 }

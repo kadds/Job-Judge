@@ -31,7 +31,8 @@ async fn main() -> std::io::Result<()> {
             .expose_headers([HeaderName::from_static("cost")])
             .max_age(3600);
         App::new()
-            .data(app_data.clone())
+            .app_data(web::PayloadConfig::new(1024 * 1024 * 100))
+            .app_data(web::Data::new(app_data.clone()))
             .wrap(cors)
             .wrap(middleware::RequestMetrics::new())
             .wrap(Logger::default())
