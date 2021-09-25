@@ -8,6 +8,28 @@ const menuItems = [
     { key: 'close_all', text: 'Close all' },
     { key: 'close_other', text: 'Close others' }
 ]
+const tab_variants = {
+    initial: {
+        y: -50,
+        opacity: 0,
+        scale: 1,
+    },
+    animate: {
+        y: 0,
+        opacity: 1,
+        scale: 1,
+    },
+    exit: {
+        y: 0,
+        opacity: 0,
+        scale: 0.3,
+    },
+    whileTap: {
+        y: 0,
+        opacity: 1,
+        scale: 1.05,
+    }
+}
 
 const Tab = props => {
     const ref = useRef(null)
@@ -47,9 +69,7 @@ const Tab = props => {
                 {
                     props.tabs.map(tab => (
                         <motion.div
-                            initial={{ y: -50, opacity: 0, scale: 1 }}
-                            animate={{ y: 0, opacity: 1, scale: 1 }}
-                            exit={{ y: 0, opacity: 0, scale: 0.3 }}
+                            {...tab_variants}
                             className={'tab-element-wrapper ' + ((props.select === tab.id) ? 'select' : '')}
                             key={tab.id} onClick={() => onClick(tab)}>
                             <Text className='tab-element'>{tab.name}</Text>

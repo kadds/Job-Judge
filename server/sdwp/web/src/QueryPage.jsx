@@ -3,6 +3,26 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { list_rpc, get_rpc, invoke_rpc } from './api'
 import ui from './store/ui'
 import JsonView from './JsonView'
+import { motion, AnimatePresence } from "framer-motion"
+
+const message_variants = {
+    initial: {
+        y: -30,
+        opacity: 0,
+        scaleY: 0.5,
+        transformOrigin: 'center top',
+    },
+    animate: {
+        y: 0,
+        opacity: 1,
+        scaleY: 1,
+    },
+    exit: {
+        y: 0,
+        opacity: 0,
+        scaleY: 0.2
+    },
+}
 
 const Enum = ({ info, message, data, dataUpdate, path }) => {
     let m = info.relate_schema[message]
@@ -179,15 +199,19 @@ const FieldRender = ({ item, info, data, dataUpdate, path }) => {
     const name = `${item.json_name} (${typename})`
     if (item.label === 'Optional' || item.label === 'Required') {
         return (
-            <div className='field'>
+            <motion.div {...message_variants} className='field'>
                 <Checkbox className='field-label' label={name} checked={checked} onChange={onCheckedChange} />
+                <AnimatePresence>
                 {
                     checked && (
-                        <TypeInputBox type={item.ktype} info={info} data={data}
-                            dataUpdate={dataUpdate} path={path} />
+                            <motion.div {...message_variants} className='field-box'>
+                                <TypeInputBox type={item.ktype} info={info} data={data}
+                                    dataUpdate={dataUpdate} path={path} />
+                            </motion.div>
                     )
                 }
-            </div>
+                </AnimatePresence>
+            </motion.div>
         )
     } else if (item.label === 'Repeated') {
         let items = data
@@ -210,25 +234,27 @@ const FieldRender = ({ item, info, data, dataUpdate, path }) => {
             dataUpdate(items)
         }
         return (
-            <div className='field'>
+            <motion.div {...message_variants} className='field'>
                 <div className='field-line'>
                     <Checkbox className='field-label' label={name} checked={checked} onChange={onCheckedChange} />
                     <IconButton iconProps={{ iconName: 'Add' }} onClick={() => onRepeatedAdd()} className='field-icon' />
                 </div>
+                <AnimatePresence>
                 {
                     checked && items.map((it, index) => (
-                        <div className='field-group' key={index}>
+                        <motion.div {...message_variants} className='field-group' key={index}>
                             <div className='field-group-icon'>
                                 <IconButton iconProps={{ iconName: 'Clear' }} onClick={() => onRepeatedRemove(index)} className='field-icon' />
                             </div>
-                            <div className='field-group-inner'>
+                            <div className='field-group-inner field-box'>
                                 <TypeInputBox type={item.ktype} info={info} data={it} dataUpdate={data => repeatedUpdate(data, index)}
                                     path={path + '/' + index} />
                             </div>
-                        </div>
+                        </motion.div>
                     ))
                 }
-            </div>
+                </AnimatePresence>
+            </motion.div>
         )
     } else {
         return null
@@ -253,6 +279,7 @@ const MessageRender = ({ info, message, data, dataUpdate, path }) => {
 
     return (
         <div className='message'>
+            <AnimatePresence>
             {
                 m && m.fields.map(item => (
                     <FieldRender key={item.json_name}
@@ -261,6 +288,7 @@ const MessageRender = ({ info, message, data, dataUpdate, path }) => {
                         path={path + '/' + item.json_name}></FieldRender>
                 ))
             }
+            </AnimatePresence>
         </div>
     )
 }

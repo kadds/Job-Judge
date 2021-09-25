@@ -8,10 +8,14 @@ const variants = {
     show: {
         opacity: 1,
         scale: 1,
+        display: 'block'
     },
     hide: {
         opacity: 0,
         scale: 1,
+        transitionEnd: {
+            display: 'none'
+        }
     }
 }
 

@@ -119,6 +119,7 @@ code {
 
 .detail-list {
   cursor: pointer;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -144,6 +145,7 @@ code {
   border: 1px solid #ccc;
   cursor: pointer;
   align-items: center;
+  -webkit-user-select: none;
   user-select: none;
   background-color: #fafafa;
   position: relative;
@@ -165,6 +167,7 @@ code {
 
 .tab-element-wrapper.select{
   background-color: #dfdfdf;
+  background-image: linear-gradient(to bottom, #dfdfdf, #dff1ff);
 }
 
 .tab-element-wrapper > .tab-element.icon  {
@@ -215,7 +218,6 @@ code {
   top: 0;
   height: 100%;
   width: 100%;
-  scale: 2;
 }
 
 .query-list-wrapper {
@@ -254,10 +256,13 @@ code {
   align-items: center;
 }
 
+.field-icon i.ms-Icon {
+  font-size: 12px;
+}
+
 .field-icon {
-  font-size: 24px;
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
 }
 
 .num-input, .enum{
@@ -282,11 +287,14 @@ code {
 .field-group-icon {
   position: absolute;
   top: 6px;
-  left: 0px;
+  left: 3px;
 }
 
 .message {
-  padding: 0 0 0 20px;
+}
+
+.field-box {
+  padding: 0 0 0 24px;
 }
 
 .query-result {

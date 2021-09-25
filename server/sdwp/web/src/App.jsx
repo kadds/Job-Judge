@@ -18,6 +18,42 @@ const bottom_menu = [
     { name: 'Setting', icon: 'Settings', render: <Setting /> }
 ]
 
+const message_bar_variants = {
+    initial: {
+        x: 0,
+        y: -50,
+        opacity: 0,
+    },
+    animate: {
+        x: 0,
+        y: 0,
+        opacity: 1,
+    },
+    exit: {
+        x: 20,
+        y: 0,
+        opacity: 0,
+    }
+}
+
+const hint_bar_variants = {
+    initial: {
+        x: 0,
+        y: -50,
+        opacity: 0,
+    },
+    animate: {
+        x: 0,
+        y: 0,
+        opacity: 1,
+    },
+    exit: {
+        x: 0,
+        y: -50,
+        opacity: 0,
+    }
+}
+
 const App = inject('store')(observer(props => {
     const ui = props.store.ui
     const [loginData, setLoginData] = useState({ username: '', password: '' })
@@ -50,9 +86,7 @@ const App = inject('store')(observer(props => {
                     {
                         ui.errors.text.slice().map(item => (
                             <motion.div
-                                initial={{ x: 0, y: -50, opacity: 0 }}
-                                animate={{ x: 0, y: 0, opacity: 1 }}
-                                exit={{ x: 20, y: 0, opacity: 0 }}
+                                {...message_bar_variants}
                                 onMouseEnter={() => ui.errors.keep(item)}
                                 onMouseLeave={() => ui.errors.new_timer(item)}
                                 className={'error-message-bar'}
@@ -75,10 +109,17 @@ const App = inject('store')(observer(props => {
                 </AnimatePresence>
             </div>
 
-            <div className={'hint-window ' + (ui.hint.show ? 'show' : 'hide')} style={{ boxShadow: DefaultEffects.elevation16 }}>
-                <Text>{ui.hint.text}</Text>
-                <IconButton onClick={onCopy} disabled={copyDisabled} iconProps={{ iconName: 'Copy' }} />
-            </div>
+            <AnimatePresence>
+                {
+                    ui.hint.show && (<motion.div
+                        {...hint_bar_variants}
+                        className='hint-window ' style={{ boxShadow: DefaultEffects.elevation16 }}>
+                        <Text>{ui.hint.text}</Text>
+                        <IconButton onClick={onCopy} disabled={copyDisabled} iconProps={{ iconName: 'Copy' }} />
+                    </motion.div>)
+                }
+            </AnimatePresence>
+
             <Dialog
                 hidden={!ui.login.show}
                 onDismiss={() => ui.login.hide_dialog()}
