@@ -36,7 +36,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .wrap(middleware::RequestMetrics::new())
             .wrap(Logger::default())
-            .service(actix_files::Files::new("/static", "web").prefer_utf8(true))
+            .service(actix_files::Files::new("/static", "./static").prefer_utf8(true))
             .wrap(middleware::Auth::new())
             .service(
                 web::scope("/api")

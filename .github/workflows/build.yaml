@@ -32,11 +32,11 @@ jobs:
       - uses: actions/setup-node@v2
         with:
           node-version: '14'
-          cache: 'npm'
+          cache-dependency-path: ./server/sdwp/web/yarn.lock
       - run: | 
-          cd server/sdwp/web
           yarn
           yarn build
+        working-directory: server/sdwp/web
       - run: ./post_build.sh
       - run: tar -cvf out.tar out/
       - uses: actions/upload-artifact@v2
