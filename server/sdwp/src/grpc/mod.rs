@@ -1,5 +1,5 @@
-use discover::Discover;
 use log::*;
+use micro_service::discover::*;
 use std::net::SocketAddr;
 use thiserror::Error;
 #[derive(Error, Debug)]
@@ -57,38 +57,40 @@ async fn get_channel(addr: SocketAddr) -> GrpcResult<tonic::transport::Channel> 
 }
 
 async fn get_module_address(
-    cfg: &crate::cfg::Config,
+    cfg: &micro_service::cfg::DiscoverConfig,
     module: &str,
 ) -> Result<Vec<(String, SocketAddr)>, std::io::Error> {
-    match cfg.discover_file.len() {
-        0 => {
-            let d =
-                discover::K8sDiscover::make(cfg.discover_suffix.to_owned(), cfg.discover_name_server.to_owned()).await;
-            d.get_from_module(module).await
-        }
-        _ => {
-            let d = discover::ConfigDiscover::new(cfg.discover_file.to_owned());
-            d.get_from_module(module).await
-        }
+    if let Some(file) = &cfg.file {
+        let d = ConfigDiscover::new(file.to_owned());
+        d.get_from_module(module).await
+    } else {
+        let d = K8sDiscover::make(cfg.suffix.to_owned(), cfg.name_server.to_owned()).await;
+        d.get_from_module(module).await
     }
 }
 
 #[allow(dead_code)]
 async fn get_module_instance_address(
-    cfg: &crate::cfg::Config,
+    cfg: &micro_service::cfg::DiscoverConfig,
     module: &str,
     name: &str,
 ) -> Result<Option<SocketAddr>, std::io::Error> {
-    match cfg.discover_file.len() {
-        0 => {
-            let d =
-                discover::K8sDiscover::make(cfg.discover_suffix.to_owned(), cfg.discover_name_server.to_owned()).await;
-            d.get_from_server(module, name).await
-        }
-        _ => {
-            let d = discover::ConfigDiscover::new(cfg.discover_file.to_owned());
-            d.get_from_server(module, name).await
-        }
+    if let Some(file) = &cfg.file {
+        let d = ConfigDiscover::new(file.to_owned());
+        d.get_from_server(module, name).await
+    } else {
+        let d = K8sDiscover::make(cfg.suffix.to_owned(), cfg.name_server.to_owned()).await;
+        d.get_from_server(module, name).await
+    }
+}
+
+pub async fn list_modules(cfg: &micro_service::cfg::DiscoverConfig) -> Result<Vec<String>, std::io::Error> {
+    if let Some(file) = &cfg.file {
+        let d = ConfigDiscover::new(file.to_owned());
+        d.list_modules().await
+    } else {
+        let d = K8sDiscover::make(cfg.suffix.to_owned(), cfg.name_server.to_owned()).await;
+        d.list_modules().await
     }
 }
 

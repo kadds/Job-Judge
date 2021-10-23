@@ -120,6 +120,7 @@ pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
         black_map: Mutex::new(HashMap::new()),
         key: server
             .config()
+            .comm
             .session_key
             .clone()
             .expect("not found session key")

@@ -20,10 +20,12 @@ pub struct MicroServiceMetaConfig {
     pub name: String,
     pub level: ServiceLevel,
     pub ip: String,
+    pub bind_port: u16,
+    pub replica_id: Option<u32>,
 }
 
 #[derive(Debug)]
-pub struct Discover {
+pub struct DiscoverConfig {
     pub ttl: u32,
     pub file: Option<String>,
     pub suffix: String,
@@ -33,11 +35,16 @@ pub struct Discover {
 #[derive(Debug)]
 pub struct MicroServiceConfig {
     pub comm_database: Database,
-    pub bind_port: u16,
-    pub discover: Discover,
+    pub discover: DiscoverConfig,
     pub meta: MicroServiceMetaConfig,
+    pub comm: CommonConfig,
+}
+
+#[derive(Debug)]
+pub struct CommonConfig {
     pub session_key: Option<String>,
-    pub replica_id: Option<u32>,
+    pub username: Option<String>,
+    pub password: Option<String>,
 }
 
 pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
@@ -53,6 +60,8 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
     let mut ttl = 60;
     let mut session_key = None;
     let mut replica_id = None;
+    let mut username = None;
+    let mut password = None;
 
     for (k, v) in std::env::vars() {
         match k.as_str() {
@@ -96,6 +105,8 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
                     return Err(InitConfigError::ParseParameterFail);
                 }
             },
+            "JJ_USERNAME" => username = Some(v),
+            "JJ_PASSWORD" => password = Some(v),
             _ => {}
         }
     }
@@ -118,8 +129,7 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
         comm_database: Database {
             url: comm_database_url,
         },
-        bind_port,
-        discover: Discover {
+        discover: DiscoverConfig {
             ttl,
             file,
             suffix,
@@ -130,8 +140,13 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
             name,
             level,
             ip,
+            replica_id,
+            bind_port,
         },
-        session_key,
-        replica_id,
+        comm: CommonConfig {
+            session_key,
+            username,
+            password,
+        },
     }))
 }

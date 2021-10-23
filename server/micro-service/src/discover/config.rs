@@ -1,6 +1,7 @@
-use crate::*;
+use super::{Discover, Error, Result};
+use async_trait::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, net::SocketAddr};
 #[derive(Serialize, Deserialize)]
 struct Server {
     address: String,
@@ -11,6 +12,7 @@ struct Config {
     modules: HashMap<String, HashMap<String, Server>>,
 }
 
+#[derive(Debug)]
 pub struct ConfigDiscover {
     config_file: String,
 }
@@ -51,5 +53,10 @@ impl Discover for ConfigDiscover {
             };
         }
         Err(Error::from(std::io::ErrorKind::InvalidInput))
+    }
+    async fn list_modules(&self) -> Result<Vec<String>> {
+        let bytes = tokio::fs::read(&self.config_file).await?;
+        let config: Config = toml::from_slice(&bytes)?;
+        config.modules.into_iter().map(|(name, _)| Ok(name)).collect()
     }
 }

@@ -1,5 +1,7 @@
-use crate::*;
-use std::{future::Future, str::FromStr};
+use super::{Discover, Result};
+use async_trait::*;
+use core::fmt::Debug;
+use std::{future::Future, net::SocketAddr, str::FromStr};
 use tokio::{
     net::UdpSocket,
     sync::{mpsc, Mutex},
@@ -10,10 +12,17 @@ use trust_dns_client::{
     client::AsyncClient,
     rr::{DNSClass, Name, RecordType},
 };
+
 pub struct K8sDiscover {
     suffix: String,
     client: Mutex<AsyncClient>,
     tx: mpsc::Sender<()>,
+}
+
+impl Debug for K8sDiscover {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("K8sDiscover").field("suffix", &self.suffix).finish()
+    }
 }
 
 async fn run_exchange<T>(d: T, mut rx: mpsc::Receiver<()>)
@@ -86,5 +95,16 @@ impl Discover for K8sDiscover {
             return Ok(record.rdata().to_ip_addr().map(|v| SocketAddr::new(v, 11100)));
         }
         Ok(None)
+    }
+
+    async fn list_modules(&self) -> Result<Vec<String>> {
+        let dns = self
+            .client
+            .lock()
+            .await
+            .query(Name::default(), DNSClass::IN, RecordType::ANY)
+            .await?;
+
+        dns.answers().iter().map(|record| Ok(record.name().to_string())).collect()
     }
 }

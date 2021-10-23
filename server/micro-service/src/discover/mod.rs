@@ -3,9 +3,11 @@ use std::net::SocketAddr;
 use std::{collections::HashMap, io::Error};
 use tokio::sync::Mutex;
 type Result<T> = std::result::Result<T, Error>;
+use core::fmt::Debug;
 
 #[async_trait]
-pub trait Discover {
+pub trait Discover: Debug {
+    async fn list_modules(&self) -> Result<Vec<String>>;
     async fn get_from_module(&self, module_name: &str) -> Result<Vec<(String, SocketAddr)>>;
     async fn get_from_server(&self, module_name: &str, server_name: &str) -> Result<Option<SocketAddr>>;
 }
@@ -15,6 +17,7 @@ pub mod k8s;
 pub use config::ConfigDiscover;
 pub use k8s::K8sDiscover;
 
+#[derive(Debug)]
 pub struct ModuleDiscover {
     pub discover: Box<dyn Discover + Send + Sync>,
     pub module: String,

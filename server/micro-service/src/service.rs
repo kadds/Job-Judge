@@ -1,4 +1,5 @@
 use crate::cfg::*;
+use crate::discover::*;
 use log::*;
 use rand::{Rng, SeedableRng};
 use std::{cmp::max, sync::Arc};
@@ -6,22 +7,22 @@ use std::{net::SocketAddr, time::Duration};
 use tokio::sync::mpsc;
 use tokio::sync::watch;
 use tonic::transport::{Channel, Endpoint};
-use tower::discover::Change;
 
+#[derive(Debug)]
 pub struct Module {
     pub(crate) channel: Channel,
-    module_discover: discover::ModuleDiscover,
+    module_discover: ModuleDiscover,
 }
 
 impl Module {
     async fn build_discover_changes(
         &self,
-        sender: &mpsc::Sender<Change<SocketAddr, Endpoint>>,
-        changes: Vec<discover::Change>,
+        sender: &mpsc::Sender<tower::discover::Change<SocketAddr, Endpoint>>,
+        changes: Vec<Change>,
     ) {
         for change in changes {
             match change {
-                discover::Change::Add((_, address)) | discover::Change::Update((_, address)) => {
+                Change::Add((_, address)) | Change::Update((_, address)) => {
                     let endpoint = match Endpoint::from_shared(format!("http://{}", address)) {
                         Ok(v) => v.timeout(Duration::from_secs(5)).concurrency_limit(32).tcp_nodelay(true),
                         Err(err) => {
@@ -29,10 +30,10 @@ impl Module {
                             continue;
                         }
                     };
-                    let _ = sender.send(Change::Insert(address, endpoint)).await;
+                    let _ = sender.send(tower::discover::Change::Insert(address, endpoint)).await;
                 }
-                discover::Change::Remove((_, address)) => {
-                    let _ = sender.send(Change::Remove(address)).await;
+                Change::Remove((_, address)) => {
+                    let _ = sender.send(tower::discover::Change::Remove(address)).await;
                 }
             }
         }
@@ -42,7 +43,7 @@ impl Module {
         self: Arc<Self>,
         ttl: u32,
         mut stop_rx: watch::Receiver<()>,
-        sender: mpsc::Sender<Change<SocketAddr, Endpoint>>,
+        sender: mpsc::Sender<tower::discover::Change<SocketAddr, Endpoint>>,
     ) {
         let mut rng = rand::rngs::StdRng::from_entropy();
         loop {
@@ -77,10 +78,10 @@ impl Module {
 
     async fn make_config(module: String, config: Arc<MicroServiceConfig>, rx: watch::Receiver<()>) -> Arc<Self> {
         let (channel, sender) = Channel::balance_channel(100);
-        let discover = discover::ConfigDiscover::new(config.discover.file.clone().unwrap());
+        let discover = ConfigDiscover::new(config.discover.file.clone().unwrap());
         let m = Arc::new(Module {
             channel,
-            module_discover: discover::ModuleDiscover::new(Box::new(discover), module),
+            module_discover: ModuleDiscover::new(Box::new(discover), module),
         });
         tokio::spawn(m.clone().discover(config.discover.ttl, rx, sender));
         m
@@ -89,11 +90,10 @@ impl Module {
     async fn make_k8s(module: String, config: Arc<MicroServiceConfig>, rx: watch::Receiver<()>) -> Arc<Self> {
         let (channel, sender) = Channel::balance_channel(100);
         let discover =
-            discover::K8sDiscover::make(config.discover.suffix.to_owned(), config.discover.name_server.to_owned())
-                .await;
+            K8sDiscover::make(config.discover.suffix.to_owned(), config.discover.name_server.to_owned()).await;
         let m = Arc::new(Module {
             channel,
-            module_discover: discover::ModuleDiscover::new(Box::new(discover), module),
+            module_discover: ModuleDiscover::new(Box::new(discover), module),
         });
         tokio::spawn(m.clone().discover(config.discover.ttl, rx, sender));
         m

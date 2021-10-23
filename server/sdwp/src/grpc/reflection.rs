@@ -303,7 +303,7 @@ pub struct RequestContext {
 }
 
 impl RequestContext {
-    pub async fn with_any(cfg: &crate::cfg::Config, module: &str) -> GrpcResult<Self> {
+    pub async fn with_any(cfg: &micro_service::cfg::DiscoverConfig, module: &str) -> GrpcResult<Self> {
         let mut rng = rand::thread_rng();
         let addrs = get_module_address(cfg, module).await?;
         if addrs.is_empty() {
@@ -320,7 +320,7 @@ impl RequestContext {
         })
     }
 
-    pub async fn with_name(cfg: &crate::cfg::Config, module: &str, instance: &str) -> GrpcResult<Self> {
+    pub async fn with_name(cfg: &micro_service::cfg::DiscoverConfig, module: &str, instance: &str) -> GrpcResult<Self> {
         let addrs = get_module_address(cfg, module).await?;
         let addr = addrs
             .iter()
@@ -334,7 +334,7 @@ impl RequestContext {
         })
     }
 
-    pub async fn new(cfg: &crate::cfg::Config, module: &str, instance: &str) -> GrpcResult<Self> {
+    pub async fn new(cfg: &micro_service::cfg::DiscoverConfig, module: &str, instance: &str) -> GrpcResult<Self> {
         if instance.is_empty() {
             Self::with_any(cfg, module).await
         } else {

@@ -48,9 +48,14 @@ pub struct InvokeRequest {
 
 #[get("/list")]
 pub async fn list(data: web::Data<AppData>) -> impl Responder {
-    HttpResponse::Ok().json(&ListResult {
-        list: data.config.modules.clone(),
-    })
+    let f = async || -> grpc::GrpcResult<ListResult> {
+        let list = grpc::list_modules(&data.config.discover).await?;
+        Ok(ListResult { list })
+    };
+    match f().await {
+        Ok(rsp) => HttpResponse::Ok().json(&rsp),
+        Err(err) => HttpResponse::InternalServerError().body(format!("{}", err)),
+    }
 }
 
 #[get("/rpcs")]
@@ -59,7 +64,7 @@ pub async fn list_rpc(data: web::Data<AppData>, req: web::Query<ListRpcRequest>)
         let instance = req.instance.clone().unwrap_or_default();
         let service = req.service.clone().unwrap_or_default();
 
-        let ctx = grpc::RequestContext::new(&data.config, &req.module, &instance).await?;
+        let ctx = grpc::RequestContext::new(&data.config.discover, &req.module, &instance).await?;
         let (service, services) = ctx.pick_services_or(&service).await?;
         let rpcs = ctx.list_rpcs(&service).await?;
         let (instance, instances) = ctx.instance();
@@ -80,7 +85,7 @@ pub async fn list_rpc(data: web::Data<AppData>, req: web::Query<ListRpcRequest>)
 #[get("/rpc")]
 pub async fn rpc_detail(data: web::Data<AppData>, req: web::Query<RpcDetailRequest>) -> impl Responder {
     let f = async || -> grpc::GrpcResult<RpcDetailResult> {
-        let ctx = grpc::RequestContext::new(&data.config, &req.module, &req.instance).await?;
+        let ctx = grpc::RequestContext::new(&data.config.discover, &req.module, &req.instance).await?;
         if req.service.is_empty() {
             return Err(grpc::GrpcError::InvalidParameters);
         }
@@ -96,7 +101,7 @@ pub async fn rpc_detail(data: web::Data<AppData>, req: web::Query<RpcDetailReque
 #[post("/invoke")]
 pub async fn invoke(data: web::Data<AppData>, req: web::Json<InvokeRequest>) -> impl Responder {
     let f = async || -> grpc::GrpcResult<Value> {
-        let ctx = grpc::RequestContext::new(&data.config, &req.module, &req.instance).await?;
+        let ctx = grpc::RequestContext::new(&data.config.discover, &req.module, &req.instance).await?;
         if req.service.is_empty() {
             return Err(grpc::GrpcError::InvalidParameters);
         }

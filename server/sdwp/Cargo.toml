@@ -24,8 +24,7 @@ futures = "0.3"
 futures-util = "0.3"
 rand = "0.8"
 lazy_static = "1"
-envy = "0.4"
-discover = {path = "../discover"}
+micro-service = {path = "../micro-service"}
 bytes = "1.0"
 num = "0.4"
 base64 = "0.13"

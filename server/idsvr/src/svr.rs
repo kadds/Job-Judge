@@ -371,7 +371,7 @@ where
 }
 
 pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
-    let replica_id = server.config().replica_id.expect("not found replica id");
+    let replica_id = server.config().meta.replica_id.expect("not found replica id");
     assert!(replica_id < MAX_REPLICA_ID);
     let connections: u32 = 10;
     let database_url = server.config().comm_database.url.clone().expect("not found comm database url");

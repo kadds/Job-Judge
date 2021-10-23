@@ -18,9 +18,9 @@ pub struct AppData {
 async fn main() -> std::io::Result<()> {
     env_logger::init();
     let config = micro_service::cfg::init_from_env().unwrap();
-    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), config.bind_port);
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), config.meta.bind_port);
 
-    info!("init service bind at 0.0.0.0:{}", config.bind_port);
+    info!("init service bind at 0.0.0.0:{}", config.meta.bind_port);
 
     let ms = Server::new(config);
     let mut rx = ms.server_signal();

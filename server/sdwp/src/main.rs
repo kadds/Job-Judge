@@ -1,5 +1,4 @@
 #![feature(async_closure)]
-mod cfg;
 mod grpc;
 mod middleware;
 mod router;
@@ -10,16 +9,16 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct AppData {
-    config: Arc<cfg::Config>,
+    config: Arc<micro_service::cfg::MicroServiceConfig>,
 }
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
 
-    let config = envy::prefixed("JJ_").from_env().unwrap();
+    let config = micro_service::cfg::init_from_env().unwrap();
     let app_data = AppData { config };
-    let port: u16 = app_data.config.bind_port;
+    let port: u16 = app_data.config.meta.bind_port;
 
     info!("bind at 0.0.0.0:{}", port);
 

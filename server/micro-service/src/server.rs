@@ -9,6 +9,7 @@ use tokio::{
 };
 use tonic::transport::Channel;
 
+#[derive(Debug)]
 pub struct Server {
     config: Arc<MicroServiceConfig>,
     modules: Mutex<HashMap<String, Arc<Module>>>,
