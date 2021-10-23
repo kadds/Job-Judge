@@ -1,7 +1,12 @@
 import axios from 'axios'
 import store from './store/index'
 
-let base_url = "http://localhost:6550/api"
+let host = location.host
+if (host.startsWith('localhost')) {
+    host = 'localhost:6550'
+}
+
+let base_url = `http://${host}/api`
 
 let token = ''
 

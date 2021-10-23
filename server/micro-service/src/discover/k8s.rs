@@ -15,13 +15,15 @@ use trust_dns_client::{
 
 pub struct K8sDiscover {
     suffix: String,
+    name_server: String,
     client: Mutex<AsyncClient>,
     tx: mpsc::Sender<()>,
 }
 
 impl Debug for K8sDiscover {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("K8sDiscover").field("suffix", &self.suffix).finish()
+        f.debug_struct("K8sDiscover").field("suffix", &self.suffix)
+        .field("name_server", &self.name_server).finish()
     }
 }
 
@@ -46,6 +48,7 @@ impl K8sDiscover {
         tokio::spawn(run_exchange(d, rx));
         K8sDiscover {
             suffix,
+            name_server,
             client: Mutex::new(client),
             tx,
         }

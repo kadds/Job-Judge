@@ -21,6 +21,7 @@ pub struct MicroServiceMetaConfig {
     pub level: ServiceLevel,
     pub ip: String,
     pub bind_port: u16,
+    pub node_port: u16,
     pub replica_id: Option<u32>,
 }
 
@@ -50,6 +51,7 @@ pub struct CommonConfig {
 pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
     let mut comm_database_url = None;
     let mut bind_port = 11100;
+    let mut node_port = 0;
     let mut module = "UNKNOWN".to_owned();
     let mut name = "UNKNOWN".to_owned();
     let mut level = ServiceLevel::Prod;
@@ -78,6 +80,13 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
             "JJ_COMM_DATABASE_URL" => comm_database_url = Some(v),
             "JJ_BIND_PORT" => match v.parse() {
                 Ok(v) => bind_port = v,
+                Err(e) => {
+                    error!("parse {}={} fail, error: {}", k, v, e);
+                    return Err(InitConfigError::ParseParameterFail);
+                }
+            },
+            "JJ_NODE_PORT" => match v.parse() {
+                Ok(v) => node_port = v,
                 Err(e) => {
                     error!("parse {}={} fail, error: {}", k, v, e);
                     return Err(InitConfigError::ParseParameterFail);
@@ -125,7 +134,7 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
         return Err(InitConfigError::EmptyConfigField);
     }
 
-    Ok(Arc::new(MicroServiceConfig {
+    let cfg = MicroServiceConfig {
         comm_database: Database {
             url: comm_database_url,
         },
@@ -142,11 +151,13 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
             ip,
             replica_id,
             bind_port,
+            node_port,
         },
         comm: CommonConfig {
             session_key,
             username,
             password,
         },
-    }))
+    };
+    Ok(Arc::new(cfg))
 }

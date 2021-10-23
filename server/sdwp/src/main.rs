@@ -35,10 +35,9 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .wrap(middleware::RequestMetrics::new())
             .wrap(Logger::default())
-            .service(actix_files::Files::new("/static", "./static").prefer_utf8(true))
-            .wrap(middleware::Auth::new())
             .service(
                 web::scope("/api")
+                    .wrap(middleware::Auth::new())
                     .service(
                         web::scope("/service")
                             .service(router::service::list)
@@ -47,6 +46,11 @@ async fn main() -> std::io::Result<()> {
                             .service(router::service::invoke),
                     )
                     .service(web::scope("/user").service(router::user::login)),
+            )
+            .service(
+                actix_files::Files::new("/", "./web/dist")
+                    .prefer_utf8(true)
+                    .index_file("index.html"),
             )
     })
     .bind(format!("0.0.0.0:{}", port))?
