@@ -1,3 +1,3 @@
-{{- template "comm.deployment" . }}
+{{- template "app.deployment_db" . }}
 ---
-{{- template "comm.service" . }}
+{{- template "app.service" . }}

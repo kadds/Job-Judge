@@ -1,6 +1,4 @@
 service:
-  port: 8080
-  nodePort: 8080
   replicas: 2
 
 resources: 
@@ -8,5 +6,5 @@ resources:
     cpu: 500m
     memory: 512Mi
   requests:
-    cpu: 50m
+    cpu: 40m
     memory: 32Mi
