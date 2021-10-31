@@ -1,4 +1,3 @@
-#![feature(async_closure)]
 mod grpc;
 mod middleware;
 mod router;

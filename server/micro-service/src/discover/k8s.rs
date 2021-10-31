@@ -62,9 +62,8 @@ impl Discover for K8sDiscover {
             .resolver
             .lookup(Name::from_str(&dns_url)?, RecordType::A, DnsRequestOptions::default())
             .await?;
-        for item in lookup.record_iter() {
-            let ret = record_map(item)?;
-            return Ok(Some(ret.1));
+        if let Some(item) = lookup.record_iter().next() {
+            return Ok(Some(record_map(item)?.1));
         }
         Ok(None)
     }

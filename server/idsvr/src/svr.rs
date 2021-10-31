@@ -86,7 +86,11 @@ impl DataSource for DatabaseDataSource {
             .bind(biz_ids.version)
             .execute(&self.pool)
             .await?;
-        if c.rows_affected() == 0 { Err(GenIdError::VersionFail) } else { Ok(()) }
+        if c.rows_affected() == 0 {
+            Err(GenIdError::VersionFail)
+        } else {
+            Ok(())
+        }
     }
 }
 

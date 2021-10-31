@@ -1,5 +1,6 @@
 use crate::{grpc, AppData};
 use actix_web::{get, post, web, HttpResponse, Responder};
+use micro_service::cfg::DiscoverConfig;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -46,70 +47,77 @@ pub struct InvokeRequest {
     pub method: String,
 }
 
+async fn list_inner(discover: &DiscoverConfig) -> grpc::GrpcResult<ListResult> {
+    let ret = grpc::list_modules(discover).await?;
+    Ok(ListResult { list: ret })
+}
+
 #[get("/list")]
 pub async fn list(data: web::Data<AppData>) -> impl Responder {
-    let f = async || -> grpc::GrpcResult<ListResult> {
-        let list = grpc::list_modules(&data.config.discover).await?;
-        Ok(ListResult { list })
-    };
-    match f().await {
+    match list_inner(&data.config.discover).await {
         Ok(rsp) => HttpResponse::Ok().json(&rsp),
         Err(err) => HttpResponse::InternalServerError().body(format!("{}", err)),
     }
+}
+
+async fn list_rpc_inner(discover: &DiscoverConfig, req: web::Query<ListRpcRequest>) -> grpc::GrpcResult<ListRpcResult> {
+    let instance = req.instance.clone().unwrap_or_default();
+    let service = req.service.clone().unwrap_or_default();
+
+    let ctx = grpc::RequestContext::new(discover, &req.module, &instance).await?;
+    let (service, services) = ctx.pick_services_or(&service).await?;
+    let rpcs = ctx.list_rpcs(&service).await?;
+    let (instance, instances) = ctx.instance();
+    Ok(ListRpcResult {
+        rpcs,
+        instance,
+        instances,
+        service,
+        services,
+    })
 }
 
 #[get("/rpcs")]
 pub async fn list_rpc(data: web::Data<AppData>, req: web::Query<ListRpcRequest>) -> impl Responder {
-    let f = async || -> grpc::GrpcResult<ListRpcResult> {
-        let instance = req.instance.clone().unwrap_or_default();
-        let service = req.service.clone().unwrap_or_default();
-
-        let ctx = grpc::RequestContext::new(&data.config.discover, &req.module, &instance).await?;
-        let (service, services) = ctx.pick_services_or(&service).await?;
-        let rpcs = ctx.list_rpcs(&service).await?;
-        let (instance, instances) = ctx.instance();
-        Ok(ListRpcResult {
-            rpcs,
-            instance,
-            instances,
-            service,
-            services,
-        })
-    };
-    match f().await {
+    match list_rpc_inner(&data.config.discover, req).await {
         Ok(rsp) => HttpResponse::Ok().json(&rsp),
         Err(err) => HttpResponse::InternalServerError().body(format!("{}", err)),
     }
+}
+
+async fn rpc_detail_inner(
+    discover: &DiscoverConfig,
+    req: web::Query<RpcDetailRequest>,
+) -> grpc::GrpcResult<RpcDetailResult> {
+    let ctx = grpc::RequestContext::new(discover, &req.module, &req.instance).await?;
+    if req.service.is_empty() {
+        return Err(grpc::GrpcError::InvalidParameters);
+    }
+    let rpc = ctx.rpc_info(&req.service, &req.method).await?;
+    Ok(RpcDetailResult { rpc })
 }
 
 #[get("/rpc")]
 pub async fn rpc_detail(data: web::Data<AppData>, req: web::Query<RpcDetailRequest>) -> impl Responder {
-    let f = async || -> grpc::GrpcResult<RpcDetailResult> {
-        let ctx = grpc::RequestContext::new(&data.config.discover, &req.module, &req.instance).await?;
-        if req.service.is_empty() {
-            return Err(grpc::GrpcError::InvalidParameters);
-        }
-        let rpc = ctx.rpc_info(&req.service, &req.method).await?;
-        Ok(RpcDetailResult { rpc })
-    };
-    match f().await {
+    match rpc_detail_inner(&data.config.discover, req).await {
         Ok(rsp) => HttpResponse::Ok().json(&rsp),
         Err(err) => HttpResponse::InternalServerError().body(format!("{}", err)),
     }
 }
 
+async fn invoke_inner(discover: &DiscoverConfig, req: web::Json<InvokeRequest>) -> grpc::GrpcResult<Value> {
+    let ctx = grpc::RequestContext::new(discover, &req.module, &req.instance).await?;
+    if req.service.is_empty() {
+        return Err(grpc::GrpcError::InvalidParameters);
+    }
+    let req_body = req.body.clone();
+    let resp = ctx.invoke(&req.service, &req.method, req_body).await?;
+    Ok(resp)
+}
+
 #[post("/invoke")]
 pub async fn invoke(data: web::Data<AppData>, req: web::Json<InvokeRequest>) -> impl Responder {
-    let f = async || -> grpc::GrpcResult<Value> {
-        let ctx = grpc::RequestContext::new(&data.config.discover, &req.module, &req.instance).await?;
-        if req.service.is_empty() {
-            return Err(grpc::GrpcError::InvalidParameters);
-        }
-        let req_body = req.body.clone();
-        let resp = ctx.invoke(&req.service, &req.method, req_body).await?;
-        Ok(resp)
-    };
-    match f().await {
+    match invoke_inner(&data.config.discover, req).await {
         Ok(rsp) => HttpResponse::Ok().json(&rsp),
         Err(err) => HttpResponse::InternalServerError().body(format!("{}", err)),
     }
