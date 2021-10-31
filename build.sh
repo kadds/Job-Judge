@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+
 function build() {
     cargo build --release --target x86_64-unknown-linux-musl --bin ${1}
 }
