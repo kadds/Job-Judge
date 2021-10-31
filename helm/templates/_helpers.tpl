@@ -19,6 +19,28 @@ spec:
       containers:
 {{- end }}
 
+{{- define "statefulset" }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: 
+  name: {{ .Chart.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      name: {{ .Chart.Name }}
+  replicas: {{ .Values.service.replicas }}
+  serviceName: {{ .Chart.Name }}
+  template: 
+    metadata:
+      labels:
+        name: {{ .Chart.Name }}
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.image.pullSecrets }}
+      containers:
+{{- end }}
+
 {{- define "container" }}
 - name: {{ .Chart.Name }}
   image: {{ .Values.global.image.prefix }}{{ .Chart.Name }}:{{ .Values.global.image.tag }}
@@ -129,6 +151,19 @@ spec:
 
 {{- define "app.deployment_db" }}
 {{- include "deployment" . }}
+{{- include "container" . | indent 8 }}
+{{- include "container.env" . | indent 10 }}
+{{- include "container.env_db" . | indent 12 }}
+{{- end }}
+
+{{- define "app.statefulset" }}
+{{- include "statefulset" . }}
+{{- include "container" . | indent 8 }}
+{{- include "container.env" . | indent 10 }}
+{{- end }}
+
+{{- define "app.statefulset_db" }}
+{{- include "statefulset" . }}
 {{- include "container" . | indent 8 }}
 {{- include "container.env" . | indent 10 }}
 {{- include "container.env_db" . | indent 12 }}

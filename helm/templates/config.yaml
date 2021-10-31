@@ -13,5 +13,16 @@ kind: Secret
 metadata:
   name: {{.Release.Name}}-secret
   namespace: {{ .Release.Namespace }}
-data: 
-
+type: Basic-auth
+stringData: 
+  username: {{ .Values.global.username }}
+  password: {{ .Values.global.password }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{.Release.Name}}-db-secret
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+stringData: 
+  url: {{ .Values.global.pgUrl }}

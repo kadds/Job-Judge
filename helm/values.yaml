@@ -4,6 +4,9 @@ global:
     tag: latest
     pullPolicy: IfNotPresent
     pullSecrets: 
+  username: admin
+  password: job-judge123
+  pgUrl: postgres://localhost/job-judge
 
 service:
   port: 8080

@@ -33,6 +33,7 @@ yarn-error.log*
 *.log
 .secrets
 *.config
+*.config.yaml
 *.env
 .*.toml
 out/
