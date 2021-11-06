@@ -1,3 +1,4 @@
 FROM busybox:stable-musl
-COPY ./${{BINARY}} /root/${{BINARY}}
-ENTRYPOINT ["/root/${{BINARY}}"]
+ADD ./ /root/
+WORKDIR /root/
+ENTRYPOINT ["./${{BINARY}}"]
