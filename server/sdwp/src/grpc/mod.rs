@@ -62,25 +62,10 @@ async fn get_module_address(
 ) -> Result<Vec<(String, SocketAddr)>, std::io::Error> {
     if let Some(file) = &cfg.file {
         let d = ConfigDiscover::new(file.to_owned());
-        d.get_from_module(module).await
+        d.list_instances(module).await
     } else {
         let d = K8sDiscover::make(cfg.suffix.to_owned(), cfg.name_server.to_owned()).await;
-        d.get_from_module(module).await
-    }
-}
-
-#[allow(dead_code)]
-async fn get_module_instance_address(
-    cfg: &micro_service::cfg::DiscoverConfig,
-    module: &str,
-    name: &str,
-) -> Result<Option<SocketAddr>, std::io::Error> {
-    if let Some(file) = &cfg.file {
-        let d = ConfigDiscover::new(file.to_owned());
-        d.get_from_server(module, name).await
-    } else {
-        let d = K8sDiscover::make(cfg.suffix.to_owned(), cfg.name_server.to_owned()).await;
-        d.get_from_server(module, name).await
+        d.list_instances(module).await
     }
 }
 

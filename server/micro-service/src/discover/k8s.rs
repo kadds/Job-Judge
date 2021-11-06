@@ -1,10 +1,15 @@
 use super::{Discover, Result};
 use async_trait::*;
 use core::fmt::Debug;
-use std::{net::SocketAddr, str::FromStr};
+use std::{
+    io::Error,
+    io::ErrorKind,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    str::FromStr,
+};
 use trust_dns_resolver::{
     proto::{
-        rr::{Record, RecordType},
+        rr::{RData, RecordType},
         xfer::DnsRequestOptions,
     },
     Name, TokioAsyncResolver,
@@ -34,46 +39,113 @@ impl K8sDiscover {
             resolver,
         }
     }
-}
+    async fn query_host_from_ip(&self, ip: &Ipv4Addr) -> Result<String> {
+        let octets = ip.octets();
+        let dns_url = format!("{}.{}.{}.{}.in-addr.arpa", octets[3], octets[2], octets[1], octets[0]);
+        let res = self
+            .resolver
+            .lookup(Name::from_str(&dns_url).unwrap(), RecordType::PTR, DnsRequestOptions::default())
+            .await?;
+        let res = res
+            .record_iter()
+            .next()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, "empty result set"))
+            .and_then(|item| {
+                if let RData::PTR(name) = item.rdata() {
+                    return Ok(name.to_string());
+                }
+                Err(Error::new(ErrorKind::InvalidData, "PTR type not found"))
+            });
+        res
+    }
+    async fn query_module_name_from_ip(&self, ip: &Ipv4Addr) -> Result<String> {
+        let host = self.query_host_from_ip(ip).await?;
+        return Ok(host
+            .replace(&self.suffix, "")
+            .rsplit('.')
+            .find(|item| !item.is_empty())
+            .unwrap_or_default()
+            .to_owned());
+    }
 
-fn record_map(record: &Record) -> Result<(String, SocketAddr)> {
-    record
-        .rdata()
-        .to_ip_addr()
-        .map(|v| (record.name().to_string(), SocketAddr::new(v, 11100)))
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "not valid ip addr"))
+    async fn query_pod_name_from_ip(&self, ip: &Ipv4Addr) -> Result<String> {
+        let host = self.query_host_from_ip(ip).await?;
+        return Ok(host
+            .replace(&self.suffix, "")
+            .split('.')
+            .find(|item| !item.is_empty())
+            .unwrap_or_default()
+            .to_owned());
+    }
+
+    async fn query_pod_name_and_ip(&self, ip: Ipv4Addr) -> Result<(String, SocketAddr)> {
+        let ret = self.query_pod_name_from_ip(&ip).await?;
+        Ok((ret, SocketAddr::new(IpAddr::V4(ip), 11100)))
+    }
 }
 
 #[async_trait]
 impl Discover for K8sDiscover {
-    async fn get_from_module(&self, module_name: &str) -> Result<Vec<(String, SocketAddr)>> {
+    async fn list_instances(&self, module_name: &str) -> Result<Vec<(String, SocketAddr)>> {
         let dns_url = format!("{}.{}", module_name, self.suffix);
         let lookup = self
             .resolver
             .lookup(Name::from_str(&dns_url)?, RecordType::A, DnsRequestOptions::default())
             .await?;
 
-        lookup.record_iter().map(record_map).collect()
+        let mut log_string = String::new();
+        let all_fut = lookup.record_iter().filter_map(|record| {
+            if let RData::A(ip) = record.rdata() {
+                log_string.push_str(&format!("{},", ip));
+                Some(self.query_pod_name_and_ip(ip.to_owned()))
+            } else {
+                None
+            }
+        });
+
+        let res = futures::future::join_all(all_fut).await.into_iter().collect();
+
+        log::debug!("request instance lists: {}", log_string);
+        res
     }
 
-    async fn get_from_server(&self, module_name: &str, server_name: &str) -> Result<Option<SocketAddr>> {
-        let dns_url = format!("{}.{}.{}", server_name, module_name, self.suffix);
+    async fn list_modules(&self) -> Result<Vec<String>> {
+        let dns_url = format!("*.{}", self.suffix);
         let lookup = self
             .resolver
             .lookup(Name::from_str(&dns_url)?, RecordType::A, DnsRequestOptions::default())
             .await?;
-        if let Some(item) = lookup.record_iter().next() {
-            return Ok(Some(record_map(item)?.1));
+
+        // for each of record, query service name
+
+        let mut log_string = String::new();
+        let all_fut = lookup.record_iter().filter_map(|record| {
+            if let RData::A(ip) = record.rdata() {
+                log_string.push_str(&format!("{},", ip));
+                Some(self.query_module_name_from_ip(ip))
+            } else {
+                None
+            }
+        });
+
+        let mut res: Vec<String> = futures::future::join_all(all_fut)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<String>>>()?;
+        res.sort();
+        log::debug!("request module lists (ip):{}", log_string);
+
+        let mut final_set = Vec::<String>::new();
+        for item in res.into_iter() {
+            if let Some(ele) = final_set.last() {
+                if *ele != item {
+                    final_set.push(item);
+                }
+            } else {
+                final_set.push(item);
+            }
         }
-        Ok(None)
-    }
 
-    async fn list_modules(&self) -> Result<Vec<String>> {
-        let dns = self
-            .resolver
-            .lookup(Name::default(), RecordType::ANY, DnsRequestOptions::default())
-            .await?;
-
-        dns.record_iter().map(|record| Ok(record.name().to_string())).collect()
+        Ok(final_set)
     }
 }

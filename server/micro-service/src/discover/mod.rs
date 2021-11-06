@@ -8,8 +8,7 @@ use core::fmt::Debug;
 #[async_trait]
 pub trait Discover: Debug {
     async fn list_modules(&self) -> Result<Vec<String>>;
-    async fn get_from_module(&self, module_name: &str) -> Result<Vec<(String, SocketAddr)>>;
-    async fn get_from_server(&self, module_name: &str, server_name: &str) -> Result<Option<SocketAddr>>;
+    async fn list_instances(&self, module_name: &str) -> Result<Vec<(String, SocketAddr)>>;
 }
 
 pub mod config;
@@ -40,7 +39,7 @@ impl ModuleDiscover {
     }
 
     pub async fn watch(&self) -> Result<Vec<Change>> {
-        let res = self.discover.get_from_module(self.module.as_ref()).await?;
+        let res = self.discover.list_instances(self.module.as_ref()).await?;
         let mut map = HashMap::new();
         let mut old_map = self.map.lock().await;
         let mut ret = vec![];

@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data: 
   JJ_SESSION_KEY: ""
-  JJ_DISCOVER_SUFFIX: "{}.{{ .Release.Namespace }}.svc.{{ .Values.cluster  }}"
+  JJ_DISCOVER_SUFFIX: "{{ .Release.Namespace }}.svc.{{ .Values.cluster  }}"
   RUST_LOG: {{ .Values.logLevel }}
 ---
 apiVersion: v1

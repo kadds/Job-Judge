@@ -48,7 +48,11 @@ pub struct InvokeRequest {
 }
 
 async fn list_inner(discover: &DiscoverConfig) -> grpc::GrpcResult<ListResult> {
-    let ret = grpc::list_modules(discover).await?;
+    let ret = grpc::list_modules(discover)
+        .await?
+        .into_iter()
+        .filter(|name| name != "sdwp" && name != "gateway")
+        .collect();
     Ok(ListResult { list: ret })
 }
 
