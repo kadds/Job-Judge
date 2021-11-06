@@ -2,7 +2,11 @@ mod grpc;
 mod middleware;
 mod router;
 mod token;
-use actix_web::{http::HeaderName, middleware::Logger, web, App, HttpServer};
+use actix_web::{
+    http::HeaderName,
+    middleware::{Compress, Logger},
+    web, App, HttpServer,
+};
 use log::*;
 use std::sync::Arc;
 
@@ -22,16 +26,14 @@ async fn main() -> std::io::Result<()> {
     info!("bind at 0.0.0.0:{}", port);
 
     HttpServer::new(move || {
-        let cors = actix_cors::Cors::default()
-            .allow_any_origin()
-            .allow_any_header()
-            .allow_any_method()
-            .expose_headers([HeaderName::from_static("cost")])
+        let cors = actix_cors::Cors::permissive()
+            .expose_headers([HeaderName::from_static("cost"), HeaderName::from_static("token")])
             .max_age(3600);
         App::new()
             .app_data(web::PayloadConfig::new(1024 * 1024 * 100))
             .app_data(web::Data::new(app_data.clone()))
             .wrap(cors)
+            .wrap(Compress::default())
             .wrap(middleware::RequestMetrics::new())
             .wrap(Logger::default())
             .service(

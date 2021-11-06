@@ -8,8 +8,6 @@ if (host.startsWith('localhost')) {
 
 let base_url = `http://${host}/api`
 
-let token = ''
-
 const instance = axios.create({
     baseURL: base_url,
     timeout: 5000,
@@ -19,7 +17,7 @@ const instance = axios.create({
 instance.interceptors.request.use(function (config) {
     return {
         ...config,
-        headers: { ...config.headers, 'Token': token }
+        headers: { ...config.headers, 'Token': window.localStorage.getItem('token') }
     }
 }, function (error) {
     const res = error.request
@@ -45,7 +43,8 @@ instance.interceptors.response.use(function (response) {
 
 async function login(username, password) {
     let resp = await instance.post(base_url + '/user/login', { username, password })
-    token = JSON.parse(resp).token
+    const token = resp.data.token
+    window.localStorage.setItem('token', token)
     return token
 }
 

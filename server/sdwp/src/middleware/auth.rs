@@ -1,5 +1,6 @@
 use super::super::{token, AppData};
 use actix_web::{
+    body::AnyBody,
     dev::Service,
     dev::ServiceRequest,
     dev::ServiceResponse,
@@ -8,8 +9,8 @@ use actix_web::{
 };
 use futures::future::{ok, Ready};
 use futures::Future;
-use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::{pin::Pin, rc::Rc};
 
 pub struct Auth {}
 
@@ -21,34 +22,38 @@ impl Auth {
 
 impl<S, B> Transform<S, ServiceRequest> for Auth
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
-    B: MessageBody,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    B: MessageBody + 'static,
     S::Future: 'static,
+    B::Error: std::error::Error,
 {
     type Error = Error;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
     type InitError = ();
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse;
     type Transform = AuthMiddleware<S>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ok(AuthMiddleware { service })
+        ok(AuthMiddleware {
+            service: Rc::new(service),
+        })
     }
 }
 
 pub struct AuthMiddleware<S> {
-    service: S,
+    service: Rc<S>,
 }
 
 impl<S, B> Service<ServiceRequest> for AuthMiddleware<S>
 where
-    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
-    B: MessageBody,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    B: MessageBody + 'static,
     S::Future: 'static,
+    B::Error: std::error::Error,
 {
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse;
 
     fn poll_ready(&self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
@@ -57,24 +62,24 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let uri = req.uri();
         let data = &req.app_data::<web::Data<AppData>>().unwrap();
-        let need_token = uri != "/user/login" && data.config.comm.username.is_some();
-        let token = req.headers().get("TOKEN").map(|v| v.to_str().unwrap_or("").to_owned());
+        let need_token = uri != "/api/user/login" && data.config.comm.username.is_some();
+        let token = req.headers().get("token").map(|v| v.to_str().unwrap_or("").to_owned());
+        let service = self.service.clone();
 
-        let fut = self.service.call(req);
         Box::pin(async move {
             if need_token {
                 if let Some(token) = token {
                     if !token::is_valid(&token).await {
                         log::error!("authorize fail");
-                        return Err(error::ErrorUnauthorized("authorize fail"));
+                        return Ok(req.error_response(error::ErrorUnauthorized("need authorized")));
                     }
                 } else {
                     log::error!("need authorize");
-                    return Err(error::ErrorUnauthorized("need authorized"));
+                    return Ok(req.error_response(error::ErrorUnauthorized("need authorized")));
                 }
             }
-            let res = fut.await?;
-            Ok(res)
+            let res = service.call(req).await?;
+            Ok(res.map_body(|_, b| AnyBody::from_message(b)))
         })
     }
 }
