@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import NavList from './NavList'
 import NavHistory from './NavHistory'
+import NavSaved from './NavSaved'
 import Content from './Content'
 import Panel from './Panel'
 import Setting from './Setting'
@@ -12,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion"
 const menu = [
     { name: 'Services', icon: 'List', render: <NavList /> },
     { name: 'History', icon: 'Recent', render: <NavHistory /> },
+    { name: 'Saved', icon: 'FabricOpenFolderHorizontal', render: <NavSaved /> }
 ]
 
 const bottom_menu = [
@@ -66,6 +68,9 @@ const App = inject('store')(observer(props => {
         (async () => {
             await login(loginData.username, loginData.password)
             ui.login.hide_dialog()
+            setTimeout(() => {
+                window.location.reload()
+            }, 1000)
         })()
     }
     const onCopy = () => {

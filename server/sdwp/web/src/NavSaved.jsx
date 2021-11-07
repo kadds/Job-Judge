@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { DetailsList, Selection, DetailsListLayoutMode, SelectionMode, Text, CheckboxVisibility, Stack } from '@fluentui/react'
-import { loadAllHistory } from './config'
+import { loadAllSaved } from './config'
 import { inject, observer } from 'mobx-react'
 
-const NavHistory = inject('store')(observer(({ store }) => {
+const NavSaved = inject('store')(observer(({ store }) => {
     const [items, setItems] = useState([])
 
     useEffect(() => {
-        let data = loadAllHistory()
+        let data = loadAllSaved()
         data.sort((a, b) => b.time - a.time)
         setItems(data)
-    }, [store.ui.dataVersion.history])
+    }, [store.ui.dataVersion.saved])
     const onInvoked = item => {
         store.ui.tab.add_tab_with(item.module, item)
     }
@@ -38,7 +38,7 @@ const NavHistory = inject('store')(observer(({ store }) => {
                 selection={selection}
                 columns={[{
                     key: 'id',
-                    name: 'History',
+                    name: 'Saved',
                     isIconOnly: false,
                     fieldName: 0,
                     isSizeable: false,
@@ -54,4 +54,4 @@ const NavHistory = inject('store')(observer(({ store }) => {
     )
 }))
 
-export default NavHistory
+export default NavSaved

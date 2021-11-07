@@ -15,9 +15,13 @@ const instance = axios.create({
 })
 
 instance.interceptors.request.use(function (config) {
+    let token = window.localStorage.getItem('token')
+    if (token === undefined) {
+        token = ''
+    }
     return {
         ...config,
-        headers: { ...config.headers, 'Token': window.localStorage.getItem('token') }
+        headers: { ...config.headers, 'Token': token }
     }
 }, function (error) {
     const res = error.request
@@ -43,6 +47,10 @@ instance.interceptors.response.use(function (response) {
 
 async function login(username, password) {
     let resp = await instance.post(base_url + '/user/login', { username, password })
+    if (resp.data.err) {
+        store.ui.errors.push('login', 401, resp.data.err, '')
+        return
+    }
     const token = resp.data.token
     window.localStorage.setItem('token', token)
     return token

@@ -1,4 +1,4 @@
-import { Text, Checkbox, Toggle, CheckboxVisibility, Dropdown, Spinner, DetailsList, DetailsListLayoutMode, SelectionMode, TextField, Separator, PrimaryButton, IconButton, ContextualMenuItemType, Callout, Dialog, DialogFooter, DefaultButton, DialogType } from '@fluentui/react'
+import { Text, Checkbox, Toggle, CheckboxVisibility, Dropdown, Spinner, DetailsList, DetailsListLayoutMode, SelectionMode, TextField, Separator, PrimaryButton, IconButton, ContextualMenuItemType, Callout, Dialog, DialogFooter, DefaultButton, DialogType, Stack, Icon, FontIcon } from '@fluentui/react'
 import React, { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { list_rpc, get_rpc, invoke_rpc } from './api'
 import ui from './store/ui'
@@ -6,6 +6,7 @@ import JsonView from './JsonView'
 import { motion, AnimatePresence } from "framer-motion"
 import { inject, observer } from 'mobx-react'
 import axios from 'axios'
+import { addHistory, addSaved } from './config'
 
 const message_variants = {
     initial: {
@@ -257,7 +258,7 @@ const FieldRender = ({ item, info, data, dataUpdate, path }) => {
     if (typename === 'Message' || typename === 'Enum') {
         typename += ' ' + item.ktype.relate
     }
-    const name = `${item.json_name} (${typename})`
+    const name = `${item.pos}. ${item.json_name} (${typename})`
     if (item.label === 'Optional' || item.label === 'Required') {
         return (
             <motion.div {...message_variants} className='field'>
@@ -354,17 +355,17 @@ const MessageRender = ({ info, message, data, dataUpdate, path }) => {
     )
 }
 
-const QueryPage = inject('store')(observer(({ store, api, tab }) => {
+const QueryPage = inject('store')(observer(({ store, api, tab, init }) => {
     const [rpcList, setRpcList] = useState([])
     const [serviceList, setServiceList] = useState([])
-    const [serviceSelection, setServiceSelection] = useState(null)
+    const [serviceSelection, setServiceSelection] = useState(init.service)
     const [instanceList, setInstanceList] = useState([])
-    const [instanceSelection, setInstanceSelection] = useState(null)
+    const [instanceSelection, setInstanceSelection] = useState(init.instance)
     const [rpcInfo, setRpcInfo] = useState(null)
     const [resultData, setResultData] = useState(null)
-    const [method, setMethod] = useState(null)
+    const [method, setMethod] = useState(init.method)
     const [updateFlag, setUpdateFlag] = useState(0)
-    const [requestData, setRequestData] = useState({})
+    const [requestData, setRequestData] = useState(init.body)
     const [editJson, setEditJsonInner] = useState(false)
     const [cost, setCost] = useState(null)
     const [dialogData, setDialogData] = useState({ uri: '', prefix: '', base64: null })
@@ -374,16 +375,42 @@ const QueryPage = inject('store')(observer(({ store, api, tab }) => {
         setEditJsonInner(val)
     }
 
+    const getCurrentAction = () => {
+        let date = new Date()
+        let id = date.getTime() + '' + parseInt(Math.random() * 10000)
+        const item = {
+            time: parseInt(date.getTime() / 1000), module: api, service: serviceSelection, instance: instanceSelection,
+            method: method, body: requestData, id
+        }
+        return item
+    }
+    const doHistory = () => {
+        addHistory(getCurrentAction())
+        store.ui.dataVersion.notify_history()
+    }
+    const doSave = () => {
+        addSaved(getCurrentAction())
+        store.ui.dataVersion.notify_saved()
+    }
+
     useEffect(() => {
         (async () => {
             ui.tab.loading_tab(tab)
             const data = await list_rpc(api, serviceSelection, instanceSelection)
             setRpcList(data.rpcs)
             setServiceList(data.services.map(item => { return { key: item, text: item } }))
-            setServiceSelection(data.service)
             setInstanceList(data.instances.map(item => { return { key: item, text: item } }))
-            setInstanceSelection(data.instance)
+            if (serviceSelection === null || serviceSelection !== init.service) {
+                setServiceSelection(data.service)
+            }
+            if (instanceSelection === null || instanceSelection !== init.instance) {
+                setInstanceSelection(data.instance)
+            }
             ui.tab.finish_loading(tab)
+            if (updateFlag === 0 && init.method !== null) {
+                const data = await get_rpc(api, serviceSelection, instanceSelection, init.method)
+                setRpcInfo(data)
+            }
         })()
     }, [updateFlag])
 
@@ -395,7 +422,6 @@ const QueryPage = inject('store')(observer(({ store, api, tab }) => {
         setRpcInfo(data)
         setMethod(m)
         setRequestData({})
-
     }, [serviceSelection, instanceSelection])
 
     const onInstanceChange = (e, item) => {
@@ -419,6 +445,7 @@ const QueryPage = inject('store')(observer(({ store, api, tab }) => {
             const end = Date.now()
             const delta = end - start
             setCost({ client: delta, server: cost })
+            doHistory()
         })()
     }
     const onInputDialog = () => {
@@ -473,6 +500,7 @@ const QueryPage = inject('store')(observer(({ store, api, tab }) => {
             ui.errors.push(e.config.url, -1, 'error load file', e + '')
         }
     }
+
     return (
         <div className='query-content'>
             <div className='query-list-wrapper'>
@@ -508,9 +536,13 @@ const QueryPage = inject('store')(observer(({ store, api, tab }) => {
             </div>
             <Separator vertical />
             <div className='query-main'>
-                <div className='query-main-header'>
-                    <Text variant='large'>.{serviceSelection}.{method}</Text>
-                    <Toggle checked={editJson} onChange={() => setEditJson(!editJson)} inlineLabel label='View json' /></div>
+                <Stack horizontal horizontalAlign='space-between' wrap tokens={{ childrenGap: 8 }}>
+                    <Text variant='xLarge' style={{ userSelect: 'none' }}>.{serviceSelection}.{method}</Text>
+                    <Stack horizontal >
+                        <IconButton iconProps={{ iconName: 'Save' }} onClick={doSave} />
+                        <IconButton checked={editJson} iconProps={{ iconName: 'RedEye' }} onClick={() => setEditJson(!editJson)} />
+                    </Stack>
+                </Stack>
                 <div className='input-content-container'>
                     {
                         rpcInfo && (
@@ -533,10 +565,16 @@ const QueryPage = inject('store')(observer(({ store, api, tab }) => {
             <Separator vertical />
             <div className='query-result'>
                 {cost && (
-                    <div className='query-time'>
-                        <Text>Client side cost: {cost.client}ms</Text>
-                        <Text>Server side cost: {cost.server}ms</Text>
-                    </div>
+                    <Stack>
+                        <Stack horizontal tokens={{ childrenGap: 4 }}>
+                            <FontIcon iconName='Clock' />
+                            <Text> Client side: {cost.client}ms</Text>
+                        </Stack>
+                        <Stack horizontal tokens={{ childrenGap: 4 }}>
+                            <FontIcon iconName='Clock' />
+                            <Text> Server side: {cost.server}ms</Text>
+                        </Stack>
+                    </Stack>
                 )}
                 <JsonView object={resultData} />
             </div>

@@ -7,7 +7,12 @@ let tab = observable({
     selected: -1,
     add_tab: action(name => {
         id += 1
-        tab.tabs.push({ id, name, loading: true })
+        tab.tabs.push({ id, name, loading: true, init: { method: null, service: null, instance: null, body: {} } })
+        tab.selected = id
+    }),
+    add_tab_with: action((name, init) => {
+        id += 1
+        tab.tabs.push({ id, name, loading: true, init })
         tab.selected = id
     }),
     close_tab: action(t => {
@@ -161,6 +166,17 @@ let dialog = observable({
     })
 })
 
-const ui = { tab, login, errors, hint, callout, dialog }
+let dataVersion = observable({
+    history: 0,
+    saved: 0,
+    notify_history: action(() => {
+        dataVersion.history++
+    }),
+    notify_saved: action(() => {
+        dataVersion.saved++
+    }),
+})
+
+const ui = { tab, login, errors, hint, callout, dialog, dataVersion }
 
 export default ui

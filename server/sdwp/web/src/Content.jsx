@@ -44,7 +44,7 @@ const Content = inject('store')(observer(props => {
                                 animate={tab.id === tab_ui.selected ? 'show' : 'hide'}
                                 variants={variants}
                                 className={'content-inner ' + (tab.id === tab_ui.selected ? 'select' : '')}>
-                                <QueryPage tab={tab} api={tab.name} />
+                                <QueryPage tab={tab} api={tab.name} init={tab.init} />
                             </motion.div>
                         ))
                     }

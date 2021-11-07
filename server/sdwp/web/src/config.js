@@ -12,7 +12,7 @@ function addHistory(item) {
         data = data.shift()
     }
     data.push(item)
-    window.localStorage.setItem('history', data)
+    window.localStorage.setItem('history', JSON.stringify(data))
 }
 
 function loadAllHistory() {
@@ -20,12 +20,27 @@ function loadAllHistory() {
     if (data === undefined || data === null || data === '') {
         return []
     } else {
-        return data
+        return JSON.parse(data)
     }
 }
 
 function clearAllHistory() {
     window.localStorage.setItem('history', [])
+}
+
+function loadAllSaved() {
+    const data = window.localStorage.getItem('savedItem')
+    if (data === undefined || data === null || data === '') {
+        return []
+    } else {
+        return JSON.parse(data)
+    }
+}
+
+function addSaved(item) {
+    let data = loadAllSaved()
+    data.push(item)
+    window.localStorage.setItem('savedItem', JSON.stringify(data))
 }
 
 export {
@@ -34,4 +49,6 @@ export {
     addHistory,
     loadAllHistory,
     clearAllHistory,
+    loadAllSaved,
+    addSaved,
 }

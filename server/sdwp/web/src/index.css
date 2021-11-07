@@ -141,7 +141,7 @@ code {
   justify-content: space-between;
   display: flex;
   height: 34px;
-  width: 128px;
+  width: 96px;
   border: 1px solid #ccc;
   cursor: pointer;
   align-items: center;
@@ -152,6 +152,7 @@ code {
   overflow: hidden;
   padding-left: 8px;
   margin: 0;
+  transition: width 200ms ease-out;
 }
 
 .tab-element-wrapper:hover {
@@ -167,7 +168,19 @@ code {
 
 .tab-element-wrapper.select{
   background-color: #dfdfdf;
-  background-image: linear-gradient(to bottom, #dfdfdf, #dff1ff);
+  background-image: linear-gradient(to bottom, #c8f0ff, #95b7ce);
+  width: 128px;
+}
+
+.tab-element-wrapper.select::before {
+  height: 2px;
+  display: block;
+  content: ' ';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #59f;
 }
 
 .tab-element-wrapper > .tab-element.icon  {
@@ -175,10 +188,11 @@ code {
   font-size: 12px;
   width: 12px;
   height: 12px;
-  margin: 4px;
+  margin: 2px;
   padding: 4px;
-  border-radius: 5px;
+  border-radius: 6px;
   transition: background-color 100ms linear;
+  transform: scale(0.7);
 }
 
 .tab-element-wrapper > .tab-element.icon:hover  {
@@ -223,7 +237,7 @@ code {
 .query-list-wrapper {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   width: 220px;
   flex: 0 0 auto;
   overflow-y: auto;
@@ -347,7 +361,7 @@ code {
 }
 
 .json-view {
-  min-width: 200px;
+  overflow-x: auto;
 }
 
 .json-view .ms-TextField-field {
@@ -363,27 +377,21 @@ code {
 
 .view-field {
   display: flex;
-  margin: 0px 8px;
+  flex-wrap: wrap;
 }
 
 .field-vertical {
   flex-direction: column;
 }
 
-.view-field-key {
-
+.json-text {
+  font-family: 'DejaVu Sans Mono', Consolas, 'Fira code', Monaco, Helvetica, 'Courier New', 'Hiragino Sans GB', monospace;
+  font-size: 16px;
+  white-space: pre-wrap;
 }
 
-.view-field-value {
-  margin-left: 8px;
-}
-
-.view-object {
-
-}
-
-.view-array {
-
+.field-indent {
+  margin-left: 26px;
 }
 
 .input-content-container {
@@ -394,6 +402,9 @@ code {
 
 .query-main-header {
   flex: 0 0 auto;
+  flex-direction: row;
+  display: flex;
+  justify-content: space-between;
 }
 
 .string-textbox-buttons {
