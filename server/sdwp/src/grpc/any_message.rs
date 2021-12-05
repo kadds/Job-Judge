@@ -870,10 +870,22 @@ impl<'a> Message for SubMessageMut<'a> {
                             return Err(DecodeError::new(format!("not found message {}", msg_type)));
                         }
                     };
-                    let mut value = Value::Object(Map::new());
-                    let mut msg = self.child(msg, &mut value);
-                    let _ = message::merge(wire_type, &mut msg, buf, ctx)?;
-                    value
+                    match rt {
+                        RepeatedType::None => {
+                            let mut value = Value::Object(Map::new());
+                            let mut msg = self.child(msg, &mut value);
+                            let _ = message::merge(wire_type, &mut msg, buf, ctx)?;
+                            value
+                        }
+                        _ => {
+                            let mut vec = Vec::new();
+                            let mut value = Value::Object(Map::new());
+                            let mut msg = self.child(msg, &mut value);
+                            let _ = message::merge(wire_type, &mut msg, buf, ctx)?;
+                            vec.push(value);
+                            Value::Array(vec)
+                        }
+                    }
                 }
                 Type::Invalid => {
                     panic!("invalid type");
