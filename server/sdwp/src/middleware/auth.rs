@@ -79,7 +79,7 @@ where
                 }
             }
             let res = service.call(req).await?;
-            Ok(res.map_body(|_, b| AnyBody::from_message(b)))
+            Ok(res.map_body(|_, b| AnyBody::new_boxed(b)))
         })
     }
 }
