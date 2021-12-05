@@ -68,7 +68,7 @@ async fn list_rpc_inner(discover: &DiscoverConfig, req: web::Query<ListRpcReques
     let instance = req.instance.clone().unwrap_or_default();
     let service = req.service.clone().unwrap_or_default();
 
-    let ctx = grpc::RequestContext::new(discover, &req.module, &instance).await?;
+    let ctx = grpc::RequestContext::new(discover, &req.module, &instance, true).await?;
     let (service, services) = ctx.pick_services_or(&service).await?;
     let rpcs = ctx.list_rpcs(&service).await?;
     let (instance, instances) = ctx.instance();
@@ -93,7 +93,7 @@ async fn rpc_detail_inner(
     discover: &DiscoverConfig,
     req: web::Query<RpcDetailRequest>,
 ) -> grpc::GrpcResult<RpcDetailResult> {
-    let ctx = grpc::RequestContext::new(discover, &req.module, &req.instance).await?;
+    let ctx = grpc::RequestContext::new(discover, &req.module, &req.instance, true).await?;
     if req.service.is_empty() {
         return Err(grpc::GrpcError::InvalidParameters);
     }
@@ -110,7 +110,7 @@ pub async fn rpc_detail(data: web::Data<AppData>, req: web::Query<RpcDetailReque
 }
 
 async fn invoke_inner(discover: &DiscoverConfig, req: web::Json<InvokeRequest>) -> grpc::GrpcResult<Value> {
-    let ctx = grpc::RequestContext::new(discover, &req.module, &req.instance).await?;
+    let ctx = grpc::RequestContext::new(discover, &req.module, &req.instance, false).await?;
     if req.service.is_empty() {
         return Err(grpc::GrpcError::InvalidParameters);
     }

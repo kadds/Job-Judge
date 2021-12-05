@@ -334,11 +334,24 @@ impl RequestContext {
         })
     }
 
-    pub async fn new(cfg: &micro_service::cfg::DiscoverConfig, module: &str, instance: &str) -> GrpcResult<Self> {
-        if instance.is_empty() {
+    pub async fn new(
+        cfg: &micro_service::cfg::DiscoverConfig,
+        module: &str,
+        instance: &str,
+        allow_ignore_instance: bool,
+    ) -> GrpcResult<Self> {
+        let ret = if instance.is_empty() {
             Self::with_any(cfg, module).await
         } else {
             Self::with_name(cfg, module, instance).await
+        };
+
+        if !allow_ignore_instance {
+            return ret;
+        }
+        match ret {
+            Err(GrpcError::InstanceNotFound(_)) => Self::with_any(cfg, module).await,
+            e => e,
         }
     }
 
