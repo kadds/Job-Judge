@@ -43,6 +43,15 @@ function addSaved(item) {
     window.localStorage.setItem('savedItem', JSON.stringify(data))
 }
 
+function delSaved(item) {
+    let data = loadAllSaved()
+    const idx = data.findIndex(it => it.id === item.id)
+    if (idx >= 0) {
+        data.splice(idx, 1)
+    }
+    window.localStorage.setItem('savedItem', JSON.stringify(data))
+}
+
 export {
     historyLimit,
     setHistoryLimit,
@@ -51,4 +60,5 @@ export {
     clearAllHistory,
     loadAllSaved,
     addSaved,
+    delSaved,
 }

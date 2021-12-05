@@ -70,7 +70,7 @@ const ArrayView = ({ value }) => {
     </div>)
 }
 const JsonView = ({ object, message, info, objectUpdate }) => {
-    const parseClick = async () => {
+    const pasteClick = async () => {
         const text = await navigator.clipboard.readText()
         const obj = JSON.parse(text)
         if (objectUpdate) {
@@ -80,10 +80,10 @@ const JsonView = ({ object, message, info, objectUpdate }) => {
     return (
         <div className='json-view'>
             <Stack horizontal horizontalAlign='flex-end'>
-                <IconButton iconProps={{ iconName: 'Copy' }} onClick={() => navigator.clipboard.writeText(JSON.stringify(object))} />
+                <IconButton ariaLabel='Copy' iconProps={{ iconName: 'Copy' }} onClick={() => navigator.clipboard.writeText(JSON.stringify(object))} />
                 {
                     objectUpdate && (
-                        <IconButton iconProps={{ iconName: 'FileTemplate' }} onClick={parseClick} />
+                        <IconButton ariaLabel='Paste' iconProps={{ iconName: 'FileTemplate' }} onClick={pasteClick} />
                     )
                 }
             </Stack>

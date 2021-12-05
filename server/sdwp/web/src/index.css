@@ -362,6 +362,7 @@ code {
 
 .json-view {
   overflow-x: auto;
+  padding: 10px 0 20px 0;
 }
 
 .json-view .ms-TextField-field {
@@ -377,7 +378,7 @@ code {
 
 .view-field {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .field-vertical {
@@ -387,7 +388,7 @@ code {
 .json-text {
   font-family: 'DejaVu Sans Mono', Consolas, 'Fira code', Monaco, Helvetica, 'Courier New', 'Hiragino Sans GB', monospace;
   font-size: 16px;
-  white-space: pre-wrap;
+  white-space: nowrap;
 }
 
 .field-indent {

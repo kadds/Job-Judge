@@ -121,8 +121,8 @@ const stringMenu = [
         iconProps: { iconName: 'Copy' }
     },
     {
-        key: 'Parse',
-        text: 'Parse',
+        key: 'Paste',
+        text: 'Paste',
         iconProps: { iconName: 'FileTemplate' }
     },
     {
@@ -153,7 +153,7 @@ const StringTextBox = ({ data, dataUpdate, path, isBytes }) => {
             setMulti(false)
         } else if (key === 'Copy') {
             navigator.clipboard.writeText(data)
-        } else if (key === 'Parse') {
+        } else if (key === 'Paste') {
             (async () => {
                 const text = await navigator.clipboard.readText()
                 if (text.indexOf('\n') >= 0) {
@@ -537,10 +537,10 @@ const QueryPage = inject('store')(observer(({ store, api, tab, init }) => {
             <Separator vertical />
             <div className='query-main'>
                 <Stack horizontal horizontalAlign='space-between' wrap tokens={{ childrenGap: 8 }}>
-                    <Text variant='xLarge' style={{ userSelect: 'none' }}>.{serviceSelection}.{method}</Text>
+                    <Text variant='xLarge' style={{ userSelect: 'none', overflow: 'hidden' }}>.{serviceSelection}.{method}</Text>
                     <Stack horizontal >
-                        <IconButton iconProps={{ iconName: 'Save' }} onClick={doSave} />
-                        <IconButton checked={editJson} iconProps={{ iconName: 'RedEye' }} onClick={() => setEditJson(!editJson)} />
+                        <IconButton ariaLabel='Save' iconProps={{ iconName: 'Save' }} onClick={doSave} />
+                        <IconButton ariaLabel='Json/View mode' checked={editJson} iconProps={{ iconName: 'RedEye' }} onClick={() => setEditJson(!editJson)} />
                     </Stack>
                 </Stack>
                 <div className='input-content-container'>
