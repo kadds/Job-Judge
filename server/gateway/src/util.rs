@@ -1,9 +1,9 @@
-use actix_http::{body::AnyBody, http::StatusCode, Response, ResponseBuilder};
+use actix_http::{body::BoxBody, Response, ResponseBuilder, StatusCode};
 use log::info;
 use std::sync::Arc;
 use tonic::{Code, Status};
 
-pub fn build_fail_response(status: Status) -> Response<AnyBody> {
+pub fn build_fail_response(status: Status) -> Response<BoxBody> {
     let msg = status.message().to_owned();
     let code = status.code();
     let code = match code {
@@ -17,7 +17,7 @@ pub fn build_fail_response(status: Status) -> Response<AnyBody> {
         Code::FailedPrecondition => StatusCode::PRECONDITION_FAILED,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     };
-    ResponseBuilder::new(code).body(msg)
+    ResponseBuilder::new(code).body(msg).map_into_boxed_body()
 }
 
 pub async fn is_valid_token(server: Arc<micro_service::Server>, token: String) -> bool {

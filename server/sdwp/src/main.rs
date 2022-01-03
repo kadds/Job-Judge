@@ -3,7 +3,7 @@ mod middleware;
 mod router;
 mod token;
 use actix_web::{
-    http::HeaderName,
+    http::header::HeaderName,
     middleware::{Compress, Logger},
     web, App, HttpServer,
 };

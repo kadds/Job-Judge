@@ -1,9 +1,10 @@
 use actix_web::{
+    body::MessageBody,
     dev::Service,
     dev::ServiceRequest,
     dev::ServiceResponse,
-    dev::{MessageBody, Transform},
-    http::{HeaderName, HeaderValue},
+    dev::Transform,
+    http::header::{HeaderName, HeaderValue},
     Error,
 };
 use futures::future::{ok, Ready};

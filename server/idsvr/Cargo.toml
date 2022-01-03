@@ -12,12 +12,12 @@ lazy_static = "1.4"
 micro-service = {path = "../micro-service"}
 log = "0.4"
 env_logger = "0.9"
-prost = "0.8"
+prost = "0.9"
 tokio = {version = "1.0", features = ["full"]}
 tokio-stream = {version = "0.1", features = ["net"]}
 sqlx = { version = "0.5", features = [ "runtime-tokio-rustls", "postgres" ] }
-tonic = "0.5"
-tonic-reflection = "0.2"
+tonic = "0.6"
+tonic-reflection = "0.3"
 rand = "0.8"
 serde = {version = "1.0", features = ["derive"]}
 
@@ -25,5 +25,5 @@ serde = {version = "1.0", features = ["derive"]}
 futures = "0.3"
 
 [build-dependencies]
-tonic-build = "0.5"
+tonic-build = "0.6"
 

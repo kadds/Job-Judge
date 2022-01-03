@@ -3,11 +3,7 @@ use std::task::{Context, Poll};
 
 use crate::{util::is_valid_token, AppData};
 use actix_web::{
-    dev::Service,
-    dev::ServiceRequest,
-    dev::ServiceResponse,
-    dev::{MessageBody, Transform},
-    error, web, Error,
+    body::MessageBody, dev::Service, dev::ServiceRequest, dev::ServiceResponse, dev::Transform, error, web, Error,
 };
 use futures::future::{ok, Ready};
 use futures::Future;
