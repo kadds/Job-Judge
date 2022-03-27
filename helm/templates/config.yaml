@@ -7,6 +7,7 @@ data:
   JJ_SESSION_KEY: ""
   JJ_DISCOVER_SUFFIX: "{{ .Release.Namespace }}.svc.{{ .Values.cluster  }}"
   RUST_LOG: {{ .Values.logLevel }}
+  JJ_CONFIG_FILE: ./config.yaml
 ---
 apiVersion: v1
 kind: Secret
@@ -26,3 +27,13 @@ metadata:
 type: Opaque
 stringData: 
   url: {{ .Values.global.pgUrl }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Release.Name}}-file-cfg
+  namespace: {{ .Release.Namespace }}
+data: 
+  configfile: |
+{{ .Values.global.config | toYaml | indent 4 }}
+

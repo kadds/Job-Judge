@@ -46,6 +46,7 @@ pub struct CommonConfig {
     pub session_key: Option<String>,
     pub username: Option<String>,
     pub password: Option<String>,
+    pub container_config: Option<String>,
 }
 
 pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
@@ -64,6 +65,7 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
     let mut replica_id = None;
     let mut username = None;
     let mut password = None;
+    let mut config_file = Some("containers.yaml".to_owned());
 
     for (k, v) in std::env::vars() {
         match k.as_str() {
@@ -116,6 +118,7 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
             },
             "JJ_USERNAME" => username = Some(v),
             "JJ_PASSWORD" => password = Some(v),
+            "JJ_CONFIG_FILE" => config_file = Some(v),
             _ => {}
         }
     }
@@ -157,6 +160,7 @@ pub fn init_from_env() -> Result<Arc<MicroServiceConfig>, InitConfigError> {
             session_key,
             username,
             password,
+            container_config: config_file,
         },
     };
     Ok(Arc::new(cfg))

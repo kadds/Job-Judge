@@ -1,23 +1,49 @@
 syntax = "proto3";
-package rpc;
+package container.rpc;
 
-message Instance {
-  string address = 1;
-  uint64 id = 2;
-  uint32 key = 3;
+enum InstanceRunningState {
+  Unknown = 0;
+  Queued = 1;
+  Starting = 2;
+  Running = 3;
+  Stopping = 4;
+  Stopped = 5;
 }
 
-message StartupRequest {
-  string config = 1;
-  string name = 2;
+message InstanceEvent {
+  uint64 timestamp = 1;
 }
 
-message ShutdownResult { bool ok = 1; }
+message InstanceInfomation {
+  InstanceRunningState state = 1; 
+}
 
-message State { uint32 cost_time = 1; }
+message StartupReq {
+  string config_name = 1;
+}
+
+message StartupRsp {
+  string id = 1;
+}
+
+message GetStateReq {
+  string id = 1;
+}
+
+message GetStateRsp {
+  InstanceInfomation info = 1;
+}
+
+message ShutdownReq {
+  string id = 1;
+  int32 timeout_milliseconds = 2;
+  bool force = 3;
+}
+
+message ShutdownRsp { InstanceInfomation info = 1; }
 
 service ContainerSvr {
-  rpc startup(StartupRequest) returns (Instance);
-  rpc state(Instance) returns (State);
-  rpc shutdown(Instance) returns (ShutdownResult);
+  rpc startup(StartupReq) returns (StartupRsp);
+  rpc get_state(GetStateReq) returns (GetStateRsp);
+  rpc shutdown(ShutdownReq) returns (ShutdownRsp);
 }

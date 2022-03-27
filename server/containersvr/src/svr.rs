@@ -1,51 +1,58 @@
-use super::config;
-use super::docker;
-use log::{debug, info, trace, warn};
-use rpc::container_svr_server::{ContainerSvr, ContainerSvrServer};
-use rpc::{Instance, ShutdownResult, StartupRequest, State};
-use std::io::{Read, Write};
-use std::time::Duration;
-use tokio::process::Command;
-use tokio::time::timeout;
+use std::sync::Arc;
+use tokio::net::TcpListener;
+use tokio_stream::wrappers::TcpListenerStream;
+use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
-pub mod rpc {
-    tonic::include_proto!("rpc");
+pub mod container {
+    pub mod rpc {
+        tonic::include_proto!("container.rpc");
+    }
 }
+pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("descriptor");
+use container::rpc::container_svr_server::{ContainerSvr, ContainerSvrServer};
+use container::rpc::*;
 
-#[derive(Debug, Default)]
-pub struct ContainerSvrImpl {}
+use crate::{config, daemon};
+use crate::mgr::Mgr;
+
+#[derive(Debug)]
+pub struct ContainerSvrImpl {
+    cfg: config::Config,
+}
 
 #[tonic::async_trait]
 impl ContainerSvr for ContainerSvrImpl {
-    async fn startup(&self, request: Request<StartupRequest>) -> Result<Response<Instance>, Status> {
+    async fn startup(&self, request: Request<StartupReq>) -> Result<Response<StartupRsp>, Status> {
+        let mgr = Mgr::new(&self.cfg);
         let req = request.into_inner();
-        let cfg = match config::from(req.config) {
-            Some(v) => v,
-            None => {
-                return Err(Status::not_found("config not find"));
-            }
-        };
-
-        if cfg.container == "docker" {
-            docker::run(
-                name: req.name,
-                cfg.img_src,
-                cfg.mem_limit,
-                cfg.vcpu_cnt,
-                cfg.vcpu_percent,
-                cfg.io_speed_limit,
-            );
+        match mgr.startup(req).await {
+            Ok(rsp) => Ok(Response::new(rsp)),
+            Err(e) => Err(Status::internal(format!("container svr inner error: {}", e))),
         }
-
-        Ok(Response::new(Instance {}))
     }
-
-    async fn state(&self, request: Request<Instance>) -> Result<State, Status> {}
-
-    async fn shutdown(&self, request: Request<Instance>) -> Result<ShutdownResult, Status> {}
+    async fn get_state(&self, request: Request<GetStateReq>) -> Result<Response<GetStateRsp>, Status> {
+        todo!()
+    }
+    async fn shutdown(&self, request: Request<ShutdownReq>) -> Result<Response<ShutdownRsp>, Status> {
+        todo!()
+    }
 }
 
-pub fn get() -> ContainerSvrServer<ContainerSvrImpl> {
-    return ContainerSvrServer::new(ContainerSvrImpl::default());
+pub async fn get(server: Arc<micro_service::Server>, listener: TcpListener) {
+    // load containers config from file
+    let cfg = config::read(&server.config()).await.unwrap();
+    daemon::start(cfg.clone());
+    let svr = ContainerSvrServer::new(ContainerSvrImpl { cfg });
+    let reflection_svr = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(FILE_DESCRIPTOR_SET)
+        .build()
+        .unwrap();
+
+    Server::builder()
+        .add_service(svr)
+        .add_service(reflection_svr)
+        .serve_with_incoming_shutdown(TcpListenerStream::new(listener), server.wait_stop_signal())
+        .await
+        .expect("start server fail");
 }

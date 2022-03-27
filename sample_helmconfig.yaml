@@ -1,0 +1,27 @@
+config: &default-config
+  url: /run/docker/containerd/containerd.sock
+  containers:
+    base:
+      image: alpine:latest
+      limit:
+        cpu: 100m
+        memory: 64m
+        io: 100
+      runtime: linux
+      snapshotter: native
+    musl-runner-M0: 
+      image: musl:latest
+      extends: base
+
+global:
+  username: username
+  password: password
+  pgUrl: postgresql://user:passwd@host:port/db
+  image:
+    prefix: docker/yourname
+    pullSecrets: 
+    pullPolicy: Always
+  config: 
+    <<: *default-config
+
+

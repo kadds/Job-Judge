@@ -1,3 +1,31 @@
+{{- define "daemonset" }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: 
+  name: {{ .Chart.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      name: {{ .Chart.Name }}
+  template: 
+    metadata:
+      labels:
+        name: {{ .Chart.Name }}
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.global.image.pullSecrets }}
+      volumes:
+        - name: settings
+          configMap:
+            name: {{.Release.Name}}-file-cfg
+        - name: containerd
+          hostPath: 
+            path: {{ .Values.global.config.url }}
+            type: Socket
+      containers:
+{{- end }}
+
 {{- define "deployment" }}
 apiVersion: apps/v1
 kind: Deployment
@@ -16,6 +44,10 @@ spec:
     spec:
       imagePullSecrets:
         - name: {{ .Values.global.image.pullSecrets }}
+      volumes:
+        - name: settings
+          configMap:
+            name: {{.Release.Name}}-file-cfg
       containers:
 {{- end }}
 
@@ -38,6 +70,10 @@ spec:
     spec:
       imagePullSecrets:
         - name: {{ .Values.global.image.pullSecrets }}
+      volumes:
+        - name: settings
+          configMap:
+            name: {{.Release.Name}}-file-cfg
       containers:
 {{- end }}
 
@@ -90,6 +126,22 @@ env:
     secretKeyRef:
       key: url
       name: {{ .Release.Name }}-db-secret
+{{- end }}
+
+{{- define "container.volume.configfile" }}
+volumeMounts:
+  - name: settings
+    mountPath: /root/config.yaml
+    subPath: configfile
+{{- end }}
+
+{{- define "container.volume.containerd" }}
+volumeMounts:
+  - name: settings
+    mountPath: /root/config.yaml
+    subPath: configfile
+  - name: containerd
+    mountPath: {{ .Values.global.config.url }}
 {{- end }}
 
 {{- define "node_service" }}
@@ -160,6 +212,13 @@ spec:
 {{- include "statefulset" . }}
 {{- include "container" . | indent 8 }}
 {{- include "container.env" . | indent 10 }}
+{{- end }}
+
+{{- define "app.daemonset" }}
+{{- include "daemonset" . }}
+{{- include "container" . | indent 8 }}
+{{- include "container.env" . | indent 10 }}
+{{- include "container.volume.containerd" . | indent 10 }}
 {{- end }}
 
 {{- define "app.statefulset_db" }}

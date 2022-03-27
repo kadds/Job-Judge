@@ -19,6 +19,7 @@ if [ -z $1 ]; then
     build_and_push 'gateway'
     build_and_push 'idsvr'
     build_and_push 'testsvr'
+    build_and_push 'containersvr'
     build_and_push 'sdwp'
 else
     build_and_push $1

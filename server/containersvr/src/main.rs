@@ -1,20 +1,20 @@
-use tokio::prelude::*;
-use tonic::transport::Server;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 mod config;
-mod docker;
-mod firecracker;
+mod daemon;
+mod mgr;
 mod svr;
-#[macro_use]
-extern crate lazy_static;
-extern crate liblog;
-use log::error;
+use log::*;
 
 #[tokio::main]
 async fn main() {
-    liblog::init_async_logger().unwrap();
-    let addr = "0.0.0.0:50052".parse().unwrap();
+    env_logger::init();
 
-    if let Err(err) = Server::builder().add_service(svr::get()).serve(addr).await {
-        error!("startup server failed, err {}", err);
-    }
+    let config = micro_service::cfg::init_from_env().unwrap();
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), config.meta.bind_port);
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+
+    info!("init service bind at 0.0.0.0:{}", config.meta.bind_port);
+
+    let ms = micro_service::Server::new(config);
+    svr::get(ms, listener).await;
 }

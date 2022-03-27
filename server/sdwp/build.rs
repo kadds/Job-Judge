@@ -4,7 +4,6 @@ fn main() {
         .build_server(false)
         .build_client(true)
         .file_descriptor_set_path(descriptor_path)
-        .type_attribute(".table", "#[derive(::sqlx::FromRow)]")
         .compile(&["proto/grpc.proto"], &["proto/"])
         .unwrap();
 }
