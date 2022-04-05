@@ -20,6 +20,8 @@ message InstanceInfomation {
 
 message StartupReq {
   string config_name = 1;
+  repeated string args = 2;
+  string stdin = 3;
 }
 
 message StartupRsp {

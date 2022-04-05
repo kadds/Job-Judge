@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use log::error;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Server;
@@ -24,11 +25,14 @@ pub struct ContainerSvrImpl {
 #[tonic::async_trait]
 impl ContainerSvr for ContainerSvrImpl {
     async fn startup(&self, request: Request<StartupReq>) -> Result<Response<StartupRsp>, Status> {
-        let mgr = Mgr::new(&self.cfg);
+        let mut mgr = Mgr::new(&self.cfg);
         let req = request.into_inner();
         match mgr.startup(req).await {
             Ok(rsp) => Ok(Response::new(rsp)),
-            Err(e) => Err(Status::internal(format!("container svr inner error: {}", e))),
+            Err(e) => {
+                error!("{}", e);
+                Err(Status::internal(format!("container svr inner error: {}", e)))
+            },
         }
     }
     async fn get_state(&self, request: Request<GetStateReq>) -> Result<Response<GetStateRsp>, Status> {

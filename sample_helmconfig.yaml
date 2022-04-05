@@ -1,13 +1,14 @@
 config: &default-config
   url: /run/docker/containerd/containerd.sock
   containers:
+    namespace: test
     base:
       image: alpine:latest
       limit:
         cpu: 100m
         memory: 64m
         io: 100
-      runtime: linux
+      runtime: io.containerd.runc.v2
       snapshotter: native
     musl-runner-M0: 
       image: musl:latest

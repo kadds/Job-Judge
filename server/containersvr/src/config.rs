@@ -1,4 +1,5 @@
 use anyhow::{Error, Result};
+use log::info;
 use micro_service::cfg::MicroServiceConfig;
 use petgraph::{
     algo::is_cyclic_directed,
@@ -36,17 +37,17 @@ macro_rules! unwrap_field {
 macro_rules! unwrap_struct_field {
     ($self:tt, $target: tt, $name: tt) => {
         if let Some(self_item) = &mut $self.$name {
-            self_item.unwrap_to(&mut $target.$name)
-        } else {
-            Ok(())
+            self_item.unwrap_to(&mut $target.$name)?
         }
     };
 }
 
 macro_rules! merge_field {
     ($self:tt, $base: tt, $name: tt) => {
-        if let Some(base_item) = &$base.$name {
-            $self.$name = Some(base_item.clone())
+        if $self.$name.is_none() {
+            if let Some(base_item) = &$base.$name {
+                $self.$name = Some(base_item.clone())
+            }
         }
     };
 }
@@ -79,6 +80,8 @@ impl Merger<LimitConfig> for InnerLimitConfig {
 
 #[derive(Deserialize, Debug, Clone)]
 struct InnerContainerConfig {
+    namespace: Option<String>,
+
     image: Option<String>,
 
     limit: Option<InnerLimitConfig>,
@@ -92,15 +95,17 @@ struct InnerContainerConfig {
 
 impl Merger<ContainerConfig> for InnerContainerConfig {
     fn merge(&mut self, base: &Self) {
+        merge_field!(self, base, namespace);
         merge_field!(self, base, image);
         merge_struct_field!(self, base, limit);
         merge_field!(self, base, runtime);
         merge_field!(self, base, snapshotter);
     }
     fn unwrap_to(&mut self, target: &mut ContainerConfig) -> Result<()> {
-        unwrap_field!(self, target, image, "alpine:latest".to_owned());
+        unwrap_field!(self, target, namespace, "default".to_owned());
+        unwrap_field!(self, target, image, "docker.io/alpine:latest".to_owned());
         unwrap_struct_field!(self, target, limit);
-        unwrap_field!(self, target, runtime, "linux".to_owned());
+        unwrap_field!(self, target, runtime, "io.containerd.runc.v2".to_owned());
         unwrap_field!(self, target, snapshotter, "native".to_owned());
         Ok(())
     }
@@ -108,6 +113,7 @@ impl Merger<ContainerConfig> for InnerContainerConfig {
 
 #[derive(Deserialize, Debug, Clone)]
 struct InnerConfig {
+    #[serde(rename="containers")]
     pub container_template: HashMap<String, RefCell<InnerContainerConfig>>,
     pub url: String,
 }
@@ -121,6 +127,8 @@ pub struct LimitConfig {
 
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct ContainerConfig {
+    pub namespace: String,
+
     pub image: String,
 
     pub limit: LimitConfig,
@@ -185,6 +193,7 @@ pub async fn read(config: &MicroServiceConfig) -> Result<Config, Error> {
                         if let Some(base_container) = cfg.container_template.get(extends) {
                             // fill extend
                             let base_container = base_container.borrow();
+                            info!("{} merge base {}", node_name, extends);
                             container.merge(&base_container)
                         }
                     }
