@@ -202,7 +202,7 @@ impl<'a> Mgr<'a> {
         self.create_container(req, cfg, &id).await?;
 
         // Step 4. get mounts from snapshot service
-        let mounts = self.load_mounts(&cfg, &id, snapshot_base).await?; 
+        let mounts = self.load_mounts(&cfg, &id, snapshot_base).await?;
 
         // Step 5. create task
         let create_task_req = CRICreateTaskReq {
@@ -237,7 +237,12 @@ impl<'a> Mgr<'a> {
         return Ok(StartupRsp { id: id });
     }
 
-    async fn load_mounts(&self, cfg: &ContainerConfig, id: &str, snapshot_base: String) -> Result<Vec<containerd_client::types::Mount>> {
+    async fn load_mounts(
+        &self,
+        cfg: &ContainerConfig,
+        id: &str,
+        snapshot_base: String,
+    ) -> Result<Vec<containerd_client::types::Mount>> {
         let view_snapshot_req = CRIPrepareSnapshotReq {
             snapshotter: cfg.snapshotter.clone(),
             key: id.to_owned(),

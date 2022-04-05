@@ -6,11 +6,8 @@ use petgraph::{
     visit::{depth_first_search, DfsEvent, IntoNodeIdentifiers, Time},
     Directed,
 };
-use serde::{Deserialize};
-use std::{
-    cell::{RefCell},
-    collections::HashMap,
-};
+use serde::Deserialize;
+use std::{cell::RefCell, collections::HashMap};
 
 trait Merger<T> {
     fn merge(&mut self, base: &Self);
@@ -113,7 +110,7 @@ impl Merger<ContainerConfig> for InnerContainerConfig {
 
 #[derive(Deserialize, Debug, Clone)]
 struct InnerConfig {
-    #[serde(rename="containers")]
+    #[serde(rename = "containers")]
     pub container_template: HashMap<String, RefCell<InnerContainerConfig>>,
     pub url: String,
 }

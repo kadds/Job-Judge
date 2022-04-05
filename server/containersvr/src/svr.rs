@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use log::error;
+use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::transport::Server;
@@ -14,8 +14,8 @@ pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("desc
 use container::rpc::container_svr_server::{ContainerSvr, ContainerSvrServer};
 use container::rpc::*;
 
-use crate::{config, daemon};
 use crate::mgr::Mgr;
+use crate::{config, daemon};
 
 #[derive(Debug)]
 pub struct ContainerSvrImpl {
@@ -32,7 +32,7 @@ impl ContainerSvr for ContainerSvrImpl {
             Err(e) => {
                 error!("{}", e);
                 Err(Status::internal(format!("container svr inner error: {}", e)))
-            },
+            }
         }
     }
     async fn get_state(&self, request: Request<GetStateReq>) -> Result<Response<GetStateRsp>, Status> {
