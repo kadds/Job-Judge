@@ -379,7 +379,9 @@ impl RequestContext {
     }
 
     pub fn instance(&self) -> (String, Vec<String>) {
-        (self.addr.to_owned(), self.addrs.iter().map(|v| v.0.clone()).collect())
+        let mut p = self.addrs.clone();
+        p.sort();
+        (self.addr.to_owned(), p.iter().map(|v| v.0.clone()).collect())
     }
 
     pub async fn pick_services_or(&self, service: &str) -> GrpcResult<(String, Vec<String>)> {

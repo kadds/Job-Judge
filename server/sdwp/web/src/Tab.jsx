@@ -27,7 +27,6 @@ const tab_variants = {
     whileTap: {
         y: 0,
         opacity: 1,
-        scale: 1.05,
     }
 }
 
@@ -72,7 +71,7 @@ const Tab = props => {
                             {...tab_variants}
                             className={'tab-element-wrapper ' + ((props.select === tab.id) ? 'select' : '')}
                             key={tab.id} onClick={() => onClick(tab)}>
-                            <Text variant='large' nowrap className='tab-element'>{tab.name}</Text>
+                            <Text variant='mediumPlus' nowrap className='tab-element'>{tab.name}</Text>
                             {
                                 tab.loading && (
                                     <ProgressIndicator className='tab-bottom-element'></ProgressIndicator>

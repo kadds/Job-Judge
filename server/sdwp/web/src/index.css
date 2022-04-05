@@ -141,7 +141,7 @@ code {
   justify-content: space-between;
   display: flex;
   height: 34px;
-  width: 96px;
+  width: 110px;
   border: 1px solid #ccc;
   cursor: pointer;
   align-items: center;
@@ -169,7 +169,7 @@ code {
 .tab-element-wrapper.select{
   background-color: #dfdfdf;
   background-image: linear-gradient(to bottom, #c8f0ff, #95b7ce);
-  width: 128px;
+  width: 140px;
 }
 
 .tab-element-wrapper.select::before {

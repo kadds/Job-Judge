@@ -6,6 +6,7 @@ import ui from './store/ui'
 const NavList = () => {
     const [items, setItems] = useState([])
     const [finalItems, setFinalItems] = useState([])
+    const [update, setUpdate] = useState(0)
 
     const onSearch = text => {
         setFinalItems(
@@ -13,17 +14,24 @@ const NavList = () => {
         )
     }
     useEffect(() => {
-        (async () => {
+        let fn = async () => {
             const data = await list_service()
             setItems(data)
             setFinalItems(data)
-        })()
-    }, [])
+        }
+        fn()
+        const id = setInterval(fn, 5000)
+        return () => {
+            clearInterval(id)
+        }
+    }, [update])
+
     const onInvoked = item => {
         const s = item
         if (s != null) {
             ui.tab.add_tab(s)
         }
+        setUpdate(update + 1)
     }
     return (
         <div className='navlist'>

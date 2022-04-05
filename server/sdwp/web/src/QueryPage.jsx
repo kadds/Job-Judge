@@ -34,7 +34,7 @@ const Enum = ({ info, message, data, dataUpdate, path }) => {
     })
     return (
         <div className='enum'>
-            <Dropdown onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set('')}
+            <Dropdown autoFocus onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set('')}
                 options={options} selectedKey={data} onChange={(e, value) => dataUpdate(value.key)}></Dropdown>
         </div>
     )
@@ -91,7 +91,7 @@ const NumTextBox = ({ type, data, dataUpdate, path }) => {
 
     return (
         <div className='num-input'>
-            <TextField onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set(null)}
+            <TextField autoFocus onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set(null)}
                 value={input} onChange={onChange} validateOnLoad={false}
                 type="number"
                 validateOnFocusOut={true}
@@ -175,7 +175,7 @@ const StringTextBox = ({ data, dataUpdate, path, isBytes }) => {
     }
     return (
         <div style={{ display: 'flex' }}>
-            <TextField onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set(null)}
+            <TextField autoFocus onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set(null)}
                 value={value} rows={3} onChange={onChange} multiline={multi} />
             <div className={'string-textbox-buttons ' + (multi ? 'multi' : 'single')}>
                 <IconButton menuProps={{ items: stringMenu.filter(items => items.key !== (multi ? 'Multi' : 'Single')), onItemClick: onMenuClick }} />
@@ -198,7 +198,7 @@ const TypeInputBox = ({ type, info, data, dataUpdate, path }) => {
         )
     } else if (type.type === 'Bool') {
         return (
-            <Toggle onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set(null)}
+            <Toggle autoFocus onFocus={() => { ui.hint.set(path) }} onBlur={() => ui.hint.set(null)}
                 value={data} onChange={(e, val) => dataUpdate(val)} />
         )
     } else if (type.type === 'Int32' || type.type === 'Sfixed32') {
@@ -249,6 +249,7 @@ const FieldRender = ({ item, info, data, dataUpdate, path }) => {
     const checked = data !== undefined
     const onCheckedChange = () => {
         if (!checked) {
+
             dataUpdate(null)
         } else {
             dataUpdate(undefined)
@@ -414,23 +415,38 @@ const QueryPage = inject('store')(observer(({ store, api, tab, init }) => {
         })()
     }, [updateFlag])
 
+    useEffect(() => {
+        const fn = () => {
+            setUpdateFlag(f => f + 1)
+        }
+        const id = setInterval(fn, 5000)
+        return () => {
+            clearInterval(id)
+        }
+    }, [])
+
     const onInvoked = useCallback(async m => {
         if (serviceSelection === null || instanceSelection === null || m === null) {
             return
         }
         const data = await get_rpc(api, serviceSelection, instanceSelection, m)
         setRpcInfo(data)
+        if (m === method) {
+            setUpdateFlag((f) => f + 1)
+            return
+        }
         setMethod(m)
         setRequestData({})
-    }, [serviceSelection, instanceSelection])
+        setUpdateFlag((f) => f + 1)
+    }, [serviceSelection, instanceSelection, method])
 
     const onInstanceChange = (e, item) => {
         setInstanceSelection(item.key)
-        setUpdateFlag(updateFlag + 1)
+        setUpdateFlag((f) => f + 1)
     }
     const onServiceChange = (e, item) => {
         setServiceSelection(item.key)
-        setUpdateFlag(updateFlag + 1)
+        setUpdateFlag((f) => f + 1)
         setRequestData({})
         setMethod(null)
         setRpcInfo(null)
@@ -446,6 +462,7 @@ const QueryPage = inject('store')(observer(({ store, api, tab, init }) => {
             const delta = end - start
             setCost({ client: delta, server: cost })
             doHistory()
+            setUpdateFlag((f) => f + 1)
         })()
     }
     const onInputDialog = () => {

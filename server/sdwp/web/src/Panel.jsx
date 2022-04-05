@@ -1,6 +1,6 @@
 import { IconButton, Text, Separator } from '@fluentui/react'
-import React, { useState } from 'react'
-import { motion, AnimatePresence } from "framer-motion"
+import React, { useState, useEffect } from 'react'
+import { motion, AnimatePresence, m } from "framer-motion"
 
 const itemHoverVariants = {
     scale: 1.1,
@@ -51,13 +51,19 @@ const Panel = props => {
         setOpen(!open)
     }
     const onMenuClick = menu => {
-        let arr = props.menu.concat(props.bottom_menu).map(m => {
-            if (menu.name === m.name) {
-                return { select: true, ...m }
-            } else { return m }
-        })
-        setNewMenus(arr)
+        let item = props.menu.concat(props.bottom_menu).find(v => v.name === menu.name)
+        if (item) {
+            item.select = true
+            setNewMenus([item])
+        }
     }
+    useEffect(() => {
+        let item = props.menu.find(v => v.select)
+        if (item) {
+            setNewMenus([item])
+        }
+    }, [])
+
 
     return (
         <motion.div layout animate={open ? "open" : "closed"} className={'panel'} variants={sidebar}>

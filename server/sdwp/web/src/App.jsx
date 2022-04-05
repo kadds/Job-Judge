@@ -11,7 +11,7 @@ import { inject, observer } from 'mobx-react'
 import { motion, AnimatePresence } from "framer-motion"
 
 const menu = [
-    { name: 'Services', icon: 'List', render: <NavList /> },
+    { name: 'Services', icon: 'List', render: <NavList />, select: true },
     { name: 'History', icon: 'Recent', render: <NavHistory /> },
     { name: 'Saved', icon: 'FabricOpenFolderHorizontal', render: <NavSaved /> }
 ]
