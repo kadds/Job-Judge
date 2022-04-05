@@ -3,7 +3,7 @@ use log::info;
 use micro_service::cfg::MicroServiceConfig;
 use petgraph::{
     algo::is_cyclic_directed,
-    visit::{depth_first_search, DfsEvent, IntoNodeIdentifiers, Time},
+    visit::{depth_first_search, DfsEvent, IntoNodeIdentifiers},
     Directed,
 };
 use serde::Deserialize;
@@ -155,7 +155,7 @@ pub async fn read(config: &MicroServiceConfig) -> Result<Config, Error> {
     let mut node_name_map = HashMap::new();
     let mut edge_map = HashMap::new();
 
-    for (name, container) in cfg.container_template.iter() {
+    for name in cfg.container_template.keys() {
         let node = graph.add_node(());
         node_map.insert(name, node);
         node_name_map.insert(node, name);
@@ -164,10 +164,10 @@ pub async fn read(config: &MicroServiceConfig) -> Result<Config, Error> {
     for (name, container) in cfg.container_template.iter() {
         if let Some(extends) = &container.borrow().extends {
             let b = match node_map.get(extends) {
-                Some(idx) => idx.clone(),
+                Some(idx) => *idx,
                 None => continue,
             };
-            let a = node_map.get(name).unwrap().clone();
+            let a = *node_map.get(name).unwrap();
             let edge = graph.add_edge(a, b, ());
             edge_map.insert(name, edge);
         }
@@ -176,28 +176,24 @@ pub async fn read(config: &MicroServiceConfig) -> Result<Config, Error> {
     if is_cyclic_directed(&graph) {
         anyhow::bail!("cyclic extends detected");
     }
-    depth_first_search(&graph, graph.node_identifiers(), |event| -> () {
-        match event {
-            DfsEvent::Discover(node, Time(t)) => {
-                let node_name = match node_name_map.get(&node) {
-                    Some(name) => *name,
-                    None => return (),
-                };
-                if let Some(container) = cfg.container_template.get(node_name) {
-                    let mut container = container.borrow_mut();
-                    if let Some(extends) = &container.extends {
-                        // get container template
-                        if let Some(base_container) = cfg.container_template.get(extends) {
-                            // fill extend
-                            let base_container = base_container.borrow();
-                            info!("{} merge base {}", node_name, extends);
-                            container.merge(&base_container)
-                        }
+    depth_first_search(&graph, graph.node_identifiers(), |event| {
+        if let DfsEvent::Discover(node, _) = event {
+            let node_name = match node_name_map.get(&node) {
+                Some(name) => *name,
+                None => return,
+            };
+            if let Some(container) = cfg.container_template.get(node_name) {
+                let mut container = container.borrow_mut();
+                if let Some(extends) = &container.extends {
+                    // get container template
+                    if let Some(base_container) = cfg.container_template.get(extends) {
+                        // fill extend
+                        let base_container = base_container.borrow();
+                        info!("{} merge base {}", node_name, extends);
+                        container.merge(&base_container)
                     }
                 }
-                ()
             }
-            _ => (),
         }
     });
 

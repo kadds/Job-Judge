@@ -1,8 +1,8 @@
 use std::collections::HashSet;
-use tonic::{Code, Request, Status};
+use tonic::{Code, Request};
 
 use containerd_client::{
-    services::v1::{events_client::EventsClient, images_client::ImagesClient, GetImageRequest},
+    services::v1::{images_client::ImagesClient, GetImageRequest},
     with_namespace,
 };
 use log::{error, info};
@@ -12,7 +12,7 @@ use crate::config::Config;
 
 async fn check_images(channel: Channel, config: Config) {
     let mut image_map = HashSet::<(&str, &str)>::new();
-    for (_, container) in &config.containers {
+    for container in config.containers.values() {
         image_map.insert((&container.image, &container.namespace));
     }
     info!("check images {}", image_map.len());
@@ -23,7 +23,7 @@ async fn check_images(channel: Channel, config: Config) {
             name: image.to_owned(),
         };
 
-        let exist = match cli.get(with_namespace!(req, ns.clone())).await {
+        let exist = match cli.get(with_namespace!(req, ns)).await {
             Ok(v) => v.into_inner().image.is_some(),
             Err(err) => {
                 if err.code() == Code::NotFound {

@@ -35,10 +35,10 @@ impl ContainerSvr for ContainerSvrImpl {
             }
         }
     }
-    async fn get_state(&self, request: Request<GetStateReq>) -> Result<Response<GetStateRsp>, Status> {
+    async fn get_state(&self, _request: Request<GetStateReq>) -> Result<Response<GetStateRsp>, Status> {
         todo!()
     }
-    async fn shutdown(&self, request: Request<ShutdownReq>) -> Result<Response<ShutdownRsp>, Status> {
+    async fn shutdown(&self, _request: Request<ShutdownReq>) -> Result<Response<ShutdownRsp>, Status> {
         todo!()
     }
 }

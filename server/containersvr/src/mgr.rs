@@ -1,7 +1,7 @@
 use crate::{config::ContainerConfig, svr::container::rpc::*};
 use anyhow::*;
 use core::result::Result::Ok;
-use oci_spec::image::{ImageConfiguration, ImageIndex, ImageManifest, Platform, PlatformBuilder};
+use oci_spec::image::{ImageConfiguration, ImageIndex, ImageManifest};
 use oci_spec::runtime::*;
 use rand::prelude::IteratorRandom;
 use sha2::{Digest, Sha256};
@@ -125,7 +125,7 @@ impl<'a> Mgr<'a> {
         };
         let mut cli = CRIContentClient::new(self.channel());
         let mut rsp = cli.read(with_namespace!(read_content_req, namespace)).await?.into_inner();
-        while let Some(rsp) = rsp.message().await? {
+        if let Some(rsp) = rsp.message().await? {
             let d = rsp.data;
             log::info!("size {} off {}", d.len(), rsp.offset);
             return Ok(d);
@@ -154,12 +154,11 @@ impl<'a> Mgr<'a> {
 
         let manifest_item = config_index
             .manifests()
-            .into_iter()
-            .filter(|file| match file.platform() {
+            .iter()
+            .find(|file| match file.platform() {
                 Some(v) => v.architecture().to_string() == "amd64" && v.os().to_string() == "linux",
                 None => false,
             })
-            .next()
             .ok_or_else(|| anyhow::anyhow!("fail to load specific manifest"))?;
 
         // Step 3. load image manifest from specific platform filter
@@ -171,9 +170,9 @@ impl<'a> Mgr<'a> {
             serde_json::from_slice(&self.read_content(namespace, layer_item.config().digest().to_owned()).await?)?;
 
         // Step 4. calculate finalize digest
-        let mut iter = config.rootfs().diff_ids().into_iter();
-        let mut prev_digest: String = iter.next().map_or_else(|| String::new(), |v| v.clone());
-        while let Some(v) = iter.next() {
+        let mut iter = config.rootfs().diff_ids().iter();
+        let mut prev_digest: String = iter.next().map_or_else(String::new, |v| v.clone());
+        while let Some(v) = iter.by_ref().next() {
             let mut hasher = Sha256::new();
             hasher.update(prev_digest);
             hasher.update(" ");
@@ -202,7 +201,7 @@ impl<'a> Mgr<'a> {
         self.create_container(req, cfg, &id).await?;
 
         // Step 4. get mounts from snapshot service
-        let mounts = self.load_mounts(&cfg, &id, snapshot_base).await?;
+        let mounts = self.load_mounts(cfg, &id, snapshot_base).await?;
 
         // Step 5. create task
         let create_task_req = CRICreateTaskReq {
@@ -234,7 +233,7 @@ impl<'a> Mgr<'a> {
         }
         log::info!("start task id {} {}", id, rsp.pid);
 
-        return Ok(StartupRsp { id: id });
+        Ok(StartupRsp { id })
     }
 
     async fn load_mounts(
@@ -265,13 +264,13 @@ impl<'a> Mgr<'a> {
         labels.insert("io.containerd.image.config.stop-signal".into(), "SIGTERM".into());
         let (spec, type_url) = load_oci_spec(cfg, id, &req)?;
         let spec = prost_types::Any {
-            type_url: type_url,
+            type_url,
             value: spec,
         };
         let create_req = CRICreateContainerReq {
             container: Some(CRIContainer {
                 id: id.clone(),
-                labels: labels,
+                labels,
                 image: cfg.image.clone(),
                 runtime: Some(CRIRuntime {
                     name: cfg.runtime.clone(),
